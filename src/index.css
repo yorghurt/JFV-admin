@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { -webkit-font-smoothing: antialiased; }
+input[type='number']::-webkit-inner-spin-button { opacity: 0.4; }
+.tabular { font-variant-numeric: tabular-nums; }
