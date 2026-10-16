@@ -2,9 +2,25 @@ import { useEffect, useState } from 'react'
 import * as db from '../lib/db'
 import { useStore } from '../lib/store'
 import { blankDoc } from '../lib/docs'
+import { parseFilename } from '../lib/ocr'
 import { round2, todayIso, addDays } from '../lib/calc'
 import { Button, Field, Input, Modal, Select } from '../components/ui'
 import { QueueStatus, UploadDrop, useFileQueue } from '../components/Upload'
+
+/**
+ * Klant bepalen: bestandsnaam ("LBL") → bestaande klant die daarmee begint/het bevat,
+ * anders de volledige naam bovenaan de PDF als die de hint bevat, anders de hint zelf.
+ */
+export function resolveClient(hint: string, firstLine: string, known: string[]) {
+  const h = hint.toLowerCase()
+  if (h) {
+    const k = known.find((n) => n.toLowerCase() === h) || known.find((n) => n.toLowerCase().startsWith(h)) || known.find((n) => n.toLowerCase().includes(h))
+    if (k) return k
+    if (firstLine.toLowerCase().includes(h)) return firstLine
+    return hint
+  }
+  return known.find((n) => n.toLowerCase() === firstLine.toLowerCase()) || firstLine
+}
 
 /** Bestaande (oude) verkoopfactuur uploaden: telt mee in omzet en btw, nummering loopt daarna door. */
 export function ImportInvoice({ onClose }: { onClose: () => void }) {
@@ -21,10 +37,11 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
     const p = q.parsed
     if (!p) return
     setError(q.error)
+    const fromName = parseFilename(q.file?.name || '')
     setF({
-      number: p.number,
+      number: fromName.number || p.number,
       date: p.date || todayIso(),
-      client: p.supplier,
+      client: resolveClient(fromName.client, p.supplier, clients.map((c) => c.name)),
       excl: p.excl ?? 0,
       vat: p.vat ?? 0,
       total: p.total ?? 0,

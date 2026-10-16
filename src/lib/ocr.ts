@@ -10,6 +10,45 @@ export interface Parsed {
   excl: number | null
 }
 
+type PdfItem = { str: string; transform: number[] }
+
+/**
+ * Tekstregels opbouwen op positie (boven → onder, links → rechts), los van de volgorde in het PDF-bestand.
+ * Zo blijven "Subtotaal : € 85,00" en "TOTAAL te voldoen : € 102,85" op één regel.
+ */
+export function itemsToText(items: PdfItem[]) {
+  const rows: { y: number; items: { x: number; s: string }[] }[] = []
+  for (const it of items) {
+    if (!it.str.trim()) continue
+    const x = it.transform[4]
+    const y = it.transform[5]
+    const row = rows.find((r) => Math.abs(r.y - y) <= 4)
+    if (row) row.items.push({ x, s: it.str })
+    else rows.push({ y, items: [{ x, s: it.str }] })
+  }
+  return (
+    rows
+      .sort((a, b) => b.y - a.y)
+      .map((r) =>
+        r.items
+          .sort((a, b) => a.x - b.x)
+          .map((i) => i.s)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      )
+      .join('\n') + '\n'
+  )
+}
+
+/** "Factuur 202611 LBL.pdf" → { number: '202611', client: 'LBL' } */
+export function parseFilename(name: string) {
+  const base = name.replace(/\.[a-z0-9]+$/i, '').replace(/[_]+/g, ' ')
+  const m = base.match(/(?:^|[\s-])(20\d{4})(?:-O)?(?:\s*[-–]\s*|\s+)(.*)$/i)
+  if (!m) return { number: '', client: '' }
+  return { number: m[1], client: m[2].replace(/\s+/g, ' ').trim() }
+}
+
 async function pdfToTextOrCanvas(file: File): Promise<{ text: string; canvas: HTMLCanvasElement | null }> {
   const pdfjs = await import('pdfjs-dist')
   const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
@@ -19,15 +58,7 @@ async function pdfToTextOrCanvas(file: File): Promise<{ text: string; canvas: HT
   for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    // Regels reconstrueren op basis van y-positie
-    let lastY: number | null = null
-    for (const item of content.items as { str: string; transform: number[] }[]) {
-      const y = Math.round(item.transform[5])
-      if (lastY !== null && Math.abs(y - lastY) > 2) text += '\n'
-      else if (lastY !== null) text += ' '
-      text += item.str
-      lastY = y
-    }
+    text += itemsToText(content.items as PdfItem[])
     text += '\n'
   }
   if (text.replace(/\s/g, '').length > 30) return { text, canvas: null }

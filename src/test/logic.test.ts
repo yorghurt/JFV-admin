@@ -81,3 +81,25 @@ describe('leveranciers', () => {
     expect(matchSupplier('Jorg Foto & Video', [])).toBeNull()
   })
 })
+
+import { itemsToText, parseFilename } from '../lib/ocr'
+import { resolveClient } from '../pages/ImportInvoice'
+describe('eigen factuur importeren', () => {
+  it('bestandsnaam', () => {
+    expect(parseFilename('Factuur 202611 LBL.pdf')).toEqual({ number: '202611', client: 'LBL' })
+    expect(parseFilename('bf464098-Factuur_202611_LBL.pdf')).toEqual({ number: '202611', client: 'LBL' })
+    expect(parseFilename('Factuur 202603 - Studio Noord.pdf')).toEqual({ number: '202603', client: 'Studio Noord' })
+    expect(parseFilename('scan.pdf')).toEqual({ number: '', client: '' })
+  })
+  it('klant uit hint', () => {
+    expect(resolveClient('LBL', 'LBL Communicatie & Contentmarketing B.V.', [])).toBe('LBL Communicatie & Contentmarketing B.V.')
+    expect(resolveClient('lbl', 'x', ['LBL Communicatie B.V.'])).toBe('LBL Communicatie B.V.')
+    expect(resolveClient('Noord', 'Coehoornstraat', [])).toBe('Noord')
+  })
+  it('regels op positie, ook bij verkeerde volgorde in PDF', () => {
+    const it = (x: number, y: number, str: string) => ({ str, transform: [1, 0, 0, 1, x, y] })
+    const text = itemsToText([it(460, 278, '€ 85,00'), it(458, 221, '€ 102,85'), it(352, 279, 'Subtotaal'), it(314, 221, 'TOTAAL te voldoen'), it(424, 278, ':'), it(466, 253, '€17,85'), it(358, 253, 'BTW (21%)')])
+    expect(text.split('\n')[0]).toBe('Subtotaal : € 85,00')
+    expect(parseText(text)).toMatchObject({ excl: 85, vat: 17.85, total: 102.85 })
+  })
+})
