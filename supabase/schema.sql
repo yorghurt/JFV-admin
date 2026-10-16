@@ -114,3 +114,7 @@ drop policy if exists own_files on storage.objects;
 create policy own_files on storage.objects for all
   using (bucket_id = 'files' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Toegang voor ingelogde gebruikers (nieuwere Supabase-projecten geven dit niet automatisch)
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on settings, clients, products, documents, expenses to authenticated;
