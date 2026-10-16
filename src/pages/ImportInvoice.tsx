@@ -1,23 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as db from '../lib/db'
 import { useStore } from '../lib/store'
 import { blankDoc } from '../lib/docs'
 import { round2, todayIso, addDays } from '../lib/calc'
-import type { Parsed } from '../lib/ocr'
 import { Button, Field, Input, Modal, Select } from '../components/ui'
-import { UploadDrop } from '../components/Upload'
+import { QueueStatus, UploadDrop, useFileQueue } from '../components/Upload'
 
 /** Bestaande (oude) verkoopfactuur uploaden: telt mee in omzet en btw, nummering loopt daarna door. */
 export function ImportInvoice({ onClose }: { onClose: () => void }) {
   const { settings, clients, docs, reload } = useStore()
-  const [file, setFile] = useState<File | null>(null)
+  const q = useFileQueue()
+  const file = q.file
+  const [saved, setSaved] = useState(0)
   const [f, setF] = useState({ number: '', date: todayIso(), client: '', excl: 0, vat: 0, total: 0, status: 'betaald' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = (k: keyof typeof f, v: string | number) => setF((x) => ({ ...x, [k]: v }))
 
-  function onParsed(p: Parsed, file: File) {
-    setFile(file)
+  useEffect(() => {
+    const p = q.parsed
+    if (!p) return
+    setError(q.error)
     setF({
       number: p.number,
       date: p.date || todayIso(),
@@ -27,7 +30,10 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
       total: p.total ?? 0,
       status: 'betaald',
     })
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.parsed])
+
+  const advance = () => (q.isLast ? onClose() : q.next())
 
   async function submit() {
     setError('')
@@ -53,7 +59,8 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
         paid_at: f.status === 'betaald' ? f.date : null,
       })
       await reload()
-      onClose()
+      setSaved((n) => n + 1)
+      advance()
     } catch (e) {
       setError((e as Error).message)
     }
@@ -61,12 +68,16 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Bestaande factuur importeren" onClose={onClose}>
-      {!file ? (
-        <UploadDrop onParsed={onParsed} />
+    <Modal title={q.count > 1 ? `Factuur ${q.index + 1} van ${q.count} importeren` : 'Bestaande factuur importeren'} onClose={onClose}>
+      {!q.count ? (
+        <UploadDrop onFiles={q.start} />
+      ) : !q.parsed ? (
+        <QueueStatus index={q.index} count={q.count} progress={q.progress} name={file?.name} />
       ) : (
         <div className="space-y-3">
-          <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">Controleer de uitgelezen gegevens: {file.name}</p>
+          <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">Controleer de uitgelezen gegevens: {file?.name}
+            {saved > 0 && ` · ${saved} opgeslagen`}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Factuurnummer">
               <Input value={f.number} onChange={(e) => set('number', e.target.value)} />
@@ -105,9 +116,13 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
           </Field>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button onClick={() => setFile(null)}>Ander bestand</Button>
+            {q.count > 1 && (
+              <Button variant="ghost" onClick={advance} disabled={busy}>
+                Overslaan
+              </Button>
+            )}
             <Button variant="primary" onClick={submit} disabled={busy}>
-              Opslaan
+              {q.isLast ? 'Opslaan' : 'Opslaan en volgende →'}
             </Button>
           </div>
         </div>

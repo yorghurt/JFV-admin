@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/copy-ocr.mjs && vite",
+    "build": "node scripts/copy-ocr.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
@@ -19,6 +19,8 @@
     "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/nld": "^1.0.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",

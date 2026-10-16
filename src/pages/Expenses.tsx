@@ -1,57 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as db from '../lib/db'
 import { useStore } from '../lib/store'
 import { eur, fmtDate, quarterOf, round2, todayIso } from '../lib/calc'
 import type { Parsed } from '../lib/ocr'
 import { EXPENSE_CATEGORIES, type Expense } from '../lib/types'
 import { Button, Card, Empty, Field, Input, Modal, PageHeader, Select } from '../components/ui'
-import { UploadDrop } from '../components/Upload'
+import { QueueStatus, UploadDrop, useFileQueue } from '../components/Upload'
+import { matchSupplier } from '../lib/suppliers'
 import { PeriodPicker, usePeriod } from './Reports'
 
 type Draft = Omit<Expense, 'id'> & { id?: string }
 const blank = (): Draft => ({ date: todayIso(), supplier: '', description: '', category: 'Overig', amount_excl: 0, vat_amount: 0, total: 0, file_path: null })
 
-/** Simpele categorie-suggestie op basis van leveranciersnaam/tekst. */
-function guessCategory(text: string) {
-  const t = text.toLowerCase()
-  const rules: [RegExp, string][] = [
-    [/adobe|google|microsoft|apple\.com|dropbox|spotify|lightroom|capture one|abonnement/, 'Software en abonnementen'],
-    [/ns |ns\.nl|shell|bp |esso|tango|parkeer|q-park|uber|ov-chipkaart|tankstation/, 'Reiskosten en vervoer'],
-    [/kpn|vodafone|t-mobile|odido|ziggo|simyo|tele2/, 'Telefoon en internet'],
-    [/cameranu|kamera express|foto konijnenberg|canon|sony|nikon|fujifilm|coolblue|bol\.com/, 'Kleine aanschaffen (< €450)'],
-    [/verzeker|insurance|centraal beheer|interpolis/, 'Verzekeringen'],
-    [/bank|asn|ing |rabobank|abn amro|bunq/, 'Bankkosten'],
-    [/meta|facebook|instagram|linkedin|drukwerk|vistaprint/, 'Marketing en reclame'],
-    [/cursus|workshop|boek|training/, 'Opleiding en vakliteratuur'],
-    [/studio|verhuur|rental/, 'Huur (studio, apparatuur)'],
-  ]
-  return rules.find(([re]) => re.test(t))?.[1] || 'Overig'
+export function draftFromParsed(p: Parsed, history: Expense[]): Draft {
+  const m = matchSupplier(p.text, history)
+  return {
+    ...blank(),
+    date: p.date || todayIso(),
+    supplier: m?.name || p.supplier,
+    description: p.number ? `Factuur ${p.number}` : '',
+    category: m?.category || 'Overig',
+    amount_excl: p.excl ?? 0,
+    vat_amount: p.vat ?? 0,
+    total: p.total ?? 0,
+  }
 }
 
 function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => void }) {
-  const { reload } = useStore()
-  const [file, setFile] = useState<File | null>(null)
+  const { reload, expenses } = useStore()
+  const q = useFileQueue()
   const [manual, setManual] = useState(!!initial)
   const [e, setE] = useState<Draft>(initial || blank())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState(0)
   const set = (k: keyof Draft, v: string | number) => setE((x) => ({ ...x, [k]: v }))
 
-  function onParsed(p: Parsed, f: File) {
-    setFile(f)
-    setManual(true)
-    const excl = p.excl ?? 0
-    setE({
-      ...blank(),
-      date: p.date || todayIso(),
-      supplier: p.supplier,
-      description: p.number ? `Factuur ${p.number}` : '',
-      category: guessCategory(p.text),
-      amount_excl: excl,
-      vat_amount: p.vat ?? 0,
-      total: p.total ?? 0,
-    })
-  }
+  useEffect(() => {
+    if (q.parsed) setE(draftFromParsed(q.parsed, expenses))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.parsed])
 
   // Bij wijzigen van totaal: btw 21% herberekenen
   const fromTotal = (total: number) => {
@@ -59,11 +47,16 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
     setE((x) => ({ ...x, total, amount_excl: excl, vat_amount: round2(total - excl) }))
   }
 
+  function advance() {
+    if (q.count && !q.isLast) q.next()
+    else onClose()
+  }
+
   async function submit() {
     setBusy(true)
     setError('')
     try {
-      const path = file ? await db.uploadFile(file, 'inkoop') : e.file_path
+      const path = q.file ? await db.uploadFile(q.file, 'inkoop') : e.file_path
       await db.save('expenses', {
         ...e,
         amount_excl: round2(Number(e.amount_excl)),
@@ -72,7 +65,8 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
         file_path: path,
       })
       await reload()
-      onClose()
+      setSaved((n) => n + 1)
+      advance()
     } catch (err) {
       setError((err as Error).message)
     }
@@ -92,24 +86,39 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
     if (url) window.open(url, '_blank')
   }
 
+  const title = initial ? 'Uitgave' : q.count > 1 ? `Uitgave ${q.index + 1} van ${q.count}` : 'Nieuwe uitgave'
+
   return (
-    <Modal title={initial ? 'Uitgave' : 'Nieuwe uitgave'} onClose={onClose}>
-      {!manual ? (
+    <Modal title={title} onClose={onClose}>
+      {!manual && !q.count ? (
         <div className="space-y-3">
-          <UploadDrop onParsed={onParsed} />
+          <UploadDrop onFiles={q.start} />
           <button className="w-full text-center text-sm text-neutral-500 hover:text-neutral-900" onClick={() => setManual(true)}>
             Handmatig invoeren zonder bestand
           </button>
         </div>
+      ) : q.count && !q.parsed ? (
+        <QueueStatus index={q.index} count={q.count} progress={q.progress} name={q.file?.name} />
       ) : (
         <div className="space-y-3">
-          {file && <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">Controleer de uitgelezen gegevens: {file.name}</p>}
+          {q.file && (
+            <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">
+              Controleer de uitgelezen gegevens: {q.file.name}
+              {saved > 0 && ` · ${saved} opgeslagen`}
+            </p>
+          )}
+          {(error || q.error) && <p className="text-sm text-red-600">{error || q.error}</p>}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Datum">
               <Input type="date" value={e.date} onChange={(x) => set('date', x.target.value)} />
             </Field>
             <Field label="Leverancier">
-              <Input value={e.supplier} onChange={(x) => set('supplier', x.target.value)} />
+              <Input list="suppliers" value={e.supplier} onChange={(x) => set('supplier', x.target.value)} />
+              <datalist id="suppliers">
+                {[...new Set(expenses.map((x) => x.supplier).filter(Boolean))].map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
             </Field>
           </div>
           <Field label="Omschrijving">
@@ -136,7 +145,6 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
           {round2(Number(e.amount_excl) + Number(e.vat_amount)) !== round2(Number(e.total)) && (
             <p className="text-xs text-amber-700">Let op: excl. + btw is niet gelijk aan het totaal.</p>
           )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-wrap justify-between gap-2 pt-2">
             <div className="flex gap-2">
               {initial && (
@@ -145,9 +153,14 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
                 </Button>
               )}
               {e.file_path && <Button onClick={openFile}>Bestand</Button>}
+              {q.count > 1 && (
+                <Button variant="ghost" onClick={advance} disabled={busy}>
+                  Overslaan
+                </Button>
+              )}
             </div>
             <Button variant="primary" onClick={submit} disabled={busy}>
-              Opslaan
+              {q.count > 1 && !q.isLast ? 'Opslaan en volgende →' : 'Opslaan'}
             </Button>
           </div>
         </div>

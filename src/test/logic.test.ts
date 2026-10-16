@@ -61,3 +61,23 @@ describe('OCR parser', () => {
     expect(p).toMatchObject({ date: '2026-01-12', total: 30, vat: 5.21, excl: 24.79, number: 'IE123456' })
   })
 })
+
+import { matchSupplier } from '../lib/suppliers'
+describe('leveranciers', () => {
+  it('herkent bekende bedrijven', () => {
+    expect(matchSupplier('Amazon EU S.à r.l.\nFactuur', [])).toMatchObject({ name: 'Amazon', source: 'bekend' })
+    expect(matchSupplier('Adobe Systems Software Ireland', [])?.category).toBe('Software en abonnementen')
+    expect(matchSupplier('Kamera Express B.V.', [])?.name).toBe('Kamera Express')
+  })
+  it('leert van eerdere uitgaven', () => {
+    const h = [{ id: '1', date: '2026-01-01', supplier: 'Fotostudio Arnhem', description: '', category: 'Huur (studio, apparatuur)', amount_excl: 0, vat_amount: 0, total: 0, file_path: null }]
+    expect(matchSupplier('FOTOSTUDIO ARNHEM\nhuur 4 uur', h)).toMatchObject({ name: 'Fotostudio Arnhem', category: 'Huur (studio, apparatuur)', source: 'historie' })
+  })
+  it('eerdere categorie wint bij bekend bedrijf', () => {
+    const h = [{ id: '1', date: '2026-01-01', supplier: 'Amazon', description: '', category: 'Kantoorkosten', amount_excl: 0, vat_amount: 0, total: 0, file_path: null }]
+    expect(matchSupplier('amazon.nl bestelling', h)?.category).toBe('Kantoorkosten')
+  })
+  it('eigen naam is geen leverancier', () => {
+    expect(matchSupplier('Jorg Foto & Video', [])).toBeNull()
+  })
+})

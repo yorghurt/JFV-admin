@@ -44,6 +44,9 @@ async function pdfToTextOrCanvas(file: File): Promise<{ text: string; canvas: HT
 async function ocr(img: File | HTMLCanvasElement, onProgress?: (p: number) => void) {
   const { createWorker } = await import('tesseract.js')
   const worker = await createWorker('nld+eng', 1, {
+    workerPath: '/ocr/worker.min.js',
+    corePath: '/ocr/',
+    langPath: '/ocr/lang',
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') onProgress?.(m.progress)
     },
@@ -53,13 +56,48 @@ async function ocr(img: File | HTMLCanvasElement, onProgress?: (p: number) => vo
   return data.text
 }
 
+/**
+ * Telefoonfoto's: EXIF-rotatie toepassen, verkleinen tot max 2400px, grijstinten + contrast.
+ * Tesseract negeert EXIF-rotatie, waardoor gedraaide foto's anders onleesbaar zijn.
+ */
+async function prepareImage(file: File): Promise<File | HTMLCanvasElement> {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const scale = Math.min(1, 2400 / Math.max(bmp.width, bmp.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bmp.width * scale)
+    canvas.height = Math.round(bmp.height * scale)
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const d = img.data
+    let min = 255
+    let max = 0
+    for (let i = 0; i < d.length; i += 4) {
+      const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+      d[i] = g
+      if (g < min) min = g
+      if (g > max) max = g
+    }
+    const range = Math.max(1, max - min)
+    for (let i = 0; i < d.length; i += 4) {
+      const v = ((d[i] - min) / range) * 255
+      d[i] = d[i + 1] = d[i + 2] = v
+    }
+    ctx.putImageData(img, 0, 0)
+    return canvas
+  } catch {
+    return file // bijv. HEIC buiten Safari: Tesseract het origineel laten proberen
+  }
+}
+
 export async function readDocument(file: File, onProgress?: (p: number) => void): Promise<Parsed> {
   let text = ''
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     const r = await pdfToTextOrCanvas(file)
     text = r.canvas ? await ocr(r.canvas, onProgress) : r.text
   } else {
-    text = await ocr(file, onProgress)
+    text = await ocr(await prepareImage(file), onProgress)
   }
   return parseText(text)
 }
