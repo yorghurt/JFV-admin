@@ -41,6 +41,27 @@ export function itemsToText(items: PdfItem[]) {
   )
 }
 
+const decodeXml = (s: string) =>
+  s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+
+/** Word-document (.docx): alleen echte tekst (<w:t>) per alinea; kop/voettekst (eigen gegevens) overslaan. */
+export function docxXmlToText(xml: string) {
+  const out: string[] = []
+  for (const p of xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || []) {
+    let line = ''
+    for (const m of p.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\/>/g)) line += m[1] !== undefined ? decodeXml(m[1]) : ' '
+    line = line.replace(/\s+/g, ' ').trim()
+    if (line) out.push(line)
+  }
+  return out.join('\n') + '\n'
+}
+
+async function docxToText(file: File) {
+  const { unzipSync, strFromU8 } = await import('fflate')
+  const files = unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: (f) => f.name === 'word/document.xml' })
+  return docxXmlToText(strFromU8(files['word/document.xml']))
+}
+
 /** "Factuur 202611 LBL.pdf" → { number: '202611', client: 'LBL' } */
 export function parseFilename(name: string) {
   const base = name.replace(/\.[a-z0-9]+$/i, '').replace(/[_]+/g, ' ')
@@ -124,7 +145,9 @@ async function prepareImage(file: File): Promise<File | HTMLCanvasElement> {
 
 export async function readDocument(file: File, onProgress?: (p: number) => void): Promise<Parsed> {
   let text = ''
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+  if (/\.docx$/i.test(file.name)) {
+    text = await docxToText(file)
+  } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     const r = await pdfToTextOrCanvas(file)
     text = r.canvas ? await ocr(r.canvas, onProgress) : r.text
   } else {

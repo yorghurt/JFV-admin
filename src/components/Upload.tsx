@@ -24,8 +24,8 @@ export function UploadDrop({ onFiles }: { onFiles: (files: File[]) => void }) {
       onClick={() => ref.current?.click()}
       className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${drag ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 hover:border-neutral-400'}`}
     >
-      <input ref={ref} type="file" multiple accept="image/*,application/pdf" className="hidden" onChange={(e) => pick(e.target.files)} />
-      <p className="text-sm font-medium">Sleep PDF's of foto's hierheen</p>
+      <input ref={ref} type="file" multiple accept="image/*,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => pick(e.target.files)} />
+      <p className="text-sm font-medium">Sleep PDF's, Word-bestanden of foto's hierheen</p>
       <p className="mt-1 text-xs text-neutral-500">of tik om bestanden te kiezen / foto te maken · meerdere tegelijk kan</p>
     </div>
   )

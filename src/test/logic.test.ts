@@ -103,3 +103,13 @@ describe('eigen factuur importeren', () => {
     expect(parseText(text)).toMatchObject({ excl: 85, vat: 17.85, total: 102.85 })
   })
 })
+
+import { docxXmlToText } from '../lib/ocr'
+describe('word-factuur', () => {
+  it('leest alleen tekst, geen tekening-attributen', () => {
+    const xml = '<w:body><w:p><w:r><wp:posOffset>4998085</wp:posOffset><w:t>LBL Communicatie &amp; Contentmarketing B.V.</w:t></w:r></w:p><w:p><w:r><w:t>Subtotaal</w:t><w:tab/><w:t>:</w:t><w:tab/><w:t xml:space="preserve">€  42,50</w:t></w:r></w:p><w:p><w:r><w:t>BTW (21%)</w:t><w:tab/><w:t>: €8,93</w:t></w:r></w:p><w:p><w:r><w:t>TOTAAL te voldoen : € 51,43</w:t></w:r></w:p></w:body>'
+    const t = docxXmlToText(xml)
+    expect(t.split('\n')[0]).toBe('LBL Communicatie & Contentmarketing B.V.')
+    expect(parseText(t)).toMatchObject({ excl: 42.5, vat: 8.93, total: 51.43, supplier: 'LBL Communicatie & Contentmarketing B.V.' })
+  })
+})
