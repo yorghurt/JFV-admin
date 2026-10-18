@@ -26,9 +26,23 @@ export function draftFromParsed(p: Parsed, history: Expense[]): Draft {
   }
 }
 
-function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => void }) {
+function ExpenseForm({
+  initial,
+  files,
+  onFileSaved,
+  onClose,
+}: {
+  initial?: Expense
+  files?: File[]
+  onFileSaved?: (file: File, e: Draft) => Promise<void>
+  onClose: () => void
+}) {
   const { reload, expenses } = useStore()
   const q = useFileQueue()
+  useEffect(() => {
+    if (files?.length) q.start(files)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [manual, setManual] = useState(!!initial)
   const [e, setE] = useState<Draft>(initial || blank())
   const [busy, setBusy] = useState(false)
@@ -64,6 +78,7 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
         total: round2(Number(e.total)),
         file_path: path,
       })
+      if (q.file && onFileSaved) await onFileSaved(q.file, e)
       await reload()
       setSaved((n) => n + 1)
       advance()
@@ -173,6 +188,39 @@ export function Expenses() {
   const { expenses } = useStore()
   const period = usePeriod()
   const [edit, setEdit] = useState<Expense | 'new' | null>(null)
+  const { settings } = useStore()
+  const [drive, setDrive] = useState<{ files: File[]; ids: Map<File, string> } | null>(null)
+  const [driveMsg, setDriveMsg] = useState('')
+
+  async function fromDrive() {
+    setDriveMsg('Google Drive controleren…')
+    try {
+      const g = await import('../lib/google')
+      const items = await g.listDocuments(settings.drive_receipts_id)
+      if (!items.length) return setDriveMsg('Geen nieuwe bonnen in Google Drive.')
+      const ids = new Map<File, string>()
+      const files: File[] = []
+      for (const [i, it] of items.entries()) {
+        setDriveMsg(`Downloaden ${i + 1} van ${items.length}…`)
+        const f = await g.downloadFromDrive(it)
+        ids.set(f, it.id)
+        files.push(f)
+      }
+      setDriveMsg('')
+      setDrive({ files, ids })
+    } catch (e) {
+      setDriveMsg('Fout: ' + (e as Error).message)
+    }
+  }
+
+  /** Verwerkte bon in Drive verplaatsen naar <bonnenmap>/Verwerkt/<jaar>. */
+  async function archive(file: File, e: { date: string }) {
+    const id = drive?.ids.get(file)
+    if (!id) return
+    const g = await import('../lib/google')
+    const target = await g.ensurePath(['Verwerkt', e.date.slice(0, 4)], settings.drive_receipts_id)
+    await g.moveFile(id, settings.drive_receipts_id, target)
+  }
 
   const rows = useMemo(
     () =>
@@ -185,7 +233,18 @@ export function Expenses() {
 
   return (
     <>
-      <PageHeader title="Uitgaven" actions={<Button variant="primary" onClick={() => setEdit('new')}>+ Inkoopfactuur / bon</Button>} />
+      <PageHeader
+        title="Uitgaven"
+        actions={
+          <>
+            {settings.drive_receipts_id && <Button onClick={fromDrive}>Bonnen uit Google Drive</Button>}
+            <Button variant="primary" onClick={() => setEdit('new')}>
+              + Inkoopfactuur / bon
+            </Button>
+          </>
+        }
+      />
+      {driveMsg && <p className={`mb-3 text-sm ${driveMsg.startsWith('Fout') ? 'text-red-600' : 'text-stone-600'}`}>{driveMsg}</p>}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <PeriodPicker {...period} allowYear />
         <span className="text-sm text-stone-500">
@@ -214,6 +273,7 @@ export function Expenses() {
         )}
       </Card>
       {edit && <ExpenseForm initial={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}
+      {drive && <ExpenseForm files={drive.files} onFileSaved={archive} onClose={() => setDrive(null)} />}
     </>
   )
 }

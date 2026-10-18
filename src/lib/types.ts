@@ -18,6 +18,17 @@ export interface Settings {
   quote_valid_days: number
   rental_note: string
   rental_list_url: string
+  drive_invoices_id: string
+  drive_invoices_name: string
+  drive_receipts_id: string
+  drive_receipts_name: string
+  mail_bcc: string
+  mail_invoice_subject: string
+  mail_invoice_body: string
+  mail_quote_subject: string
+  mail_quote_body: string
+  mail_reminder_subject: string
+  mail_reminder_body: string
 }
 
 export interface Client {
@@ -72,6 +83,8 @@ export interface Doc {
   file_path: string | null
   source_quote_id: string | null
   credit_of: string | null
+  sent_at?: string | null
+  reminded_at?: string | null
   paid_at: string | null
   created_at?: string
 }

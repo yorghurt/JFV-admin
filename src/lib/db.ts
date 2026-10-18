@@ -26,6 +26,17 @@ export const DEFAULT_SETTINGS: Settings = {
   rental_note:
     'Toelichting: De minimale huurtijd is 0,5 dag.\nHuur van apparatuur door LBL wordt alleen gefactureerd in het geval het een betaalde fotografie opdracht voor een klant betreft. Bij overige opdrachten vindt overleg plaats wat betreft de huur van apparatuur.',
   rental_list_url: '',
+  drive_invoices_id: '',
+  drive_invoices_name: '',
+  drive_receipts_id: '',
+  drive_receipts_name: '',
+  mail_bcc: 'jorgvangerner@gmail.com',
+  mail_invoice_subject: 'Factuur {nummer} – Jorg Foto & Video',
+  mail_invoice_body: 'Beste {naam},\n\nIn de bijlage vind je factuur {nummer} van {bedrag}. Graag betalen vóór {vervaldatum} op {iban} o.v.v. het factuurnummer.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
+  mail_quote_subject: 'Offerte {nummer} – Jorg Foto & Video',
+  mail_quote_body: 'Beste {naam},\n\nIn de bijlage vind je offerte {nummer} van {bedrag}. De offerte is geldig tot {vervaldatum}.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
+  mail_reminder_subject: 'Herinnering factuur {nummer}',
+  mail_reminder_body: 'Beste {naam},\n\nVolgens mijn administratie staat factuur {nummer} van {bedrag} (vervaldatum {vervaldatum}) nog open. Wil je deze binnen 7 dagen voldoen op {iban} o.v.v. het factuurnummer? Is de betaling al onderweg, dan kun je dit bericht negeren. De factuur zit nogmaals in de bijlage.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
 }
 
 const demoKey = (t: string) => `jfv-demo-${t}`
@@ -68,6 +79,8 @@ export async function remove(table: Table, id: string) {
   if (error) throw error
 }
 
+const stripNulls = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null))
+
 export async function getSettings(): Promise<Settings> {
   if (DEMO) return { ...DEFAULT_SETTINGS, ...(demoRead<Settings>('settings')[0] || {}) }
   const { data, error } = await supabase!.from('settings').select('*').maybeSingle()
@@ -75,9 +88,9 @@ export async function getSettings(): Promise<Settings> {
   if (!data) {
     const { data: created, error: e2 } = await supabase!.from('settings').insert({}).select().single()
     if (e2) throw e2
-    return created as Settings
+    return { ...DEFAULT_SETTINGS, ...stripNulls(created) } as Settings
   }
-  return data as Settings
+  return { ...DEFAULT_SETTINGS, ...stripNulls(data) } as Settings
 }
 
 export async function saveSettings(s: Settings) {

@@ -1,4 +1,4 @@
-import { addDays, download, nextNumber, todayIso, totals, uid } from './calc'
+import { addDays, download, eur, fmtDate, nextNumber, quarterOf, todayIso, totals, uid } from './calc'
 import * as db from './db'
 import type { Client, Doc, DocType, Settings } from './types'
 
@@ -111,10 +111,48 @@ export async function settleCredit(credit: Doc, docs: Doc[]) {
   if (!wasPaid) await db.save('documents', { ...credit, status: 'betaald', paid_at: todayIso() })
 }
 
-export async function downloadPdf(doc: Doc, settings: Settings, creditedNumber?: string | null) {
-  const [{ pdf }, { InvoicePdf }] = await Promise.all([import('@react-pdf/renderer'), import('../pdf/InvoicePdf')])
-  const blob = await pdf(<InvoicePdf doc={doc} settings={settings} creditedNumber={creditedNumber} />).toBlob()
+export function pdfFileName(doc: Doc) {
   const kind = doc.doc_type === 'offerte' ? 'Offerte' : doc.credit_of ? 'Creditfactuur' : 'Factuur'
   const client = (doc.client_snapshot.name || '').split(' ')[0]
-  download(`${kind} ${doc.number || 'concept'}${client ? ' ' + client : ''}.pdf`, blob)
+  return `${kind} ${doc.number || 'concept'}${client ? ' ' + client : ''}.pdf`
+}
+
+export async function pdfBlob(doc: Doc, settings: Settings, creditedNumber?: string | null) {
+  const [{ pdf }, { InvoicePdf }] = await Promise.all([import('@react-pdf/renderer'), import('../pdf/InvoicePdf')])
+  return pdf(<InvoicePdf doc={doc} settings={settings} creditedNumber={creditedNumber} />).toBlob()
+}
+
+export async function downloadPdf(doc: Doc, settings: Settings, creditedNumber?: string | null) {
+  download(pdfFileName(doc), await pdfBlob(doc, settings, creditedNumber))
+}
+
+/** Factuur-PDF in Google Drive zetten: <facturenmap>/<jaar>/Q<kwartaal>/ */
+export async function saveToDrive(doc: Doc, settings: Settings, creditedNumber?: string | null) {
+  if (!settings.drive_invoices_id || !doc.number) return false
+  const g = await import('./google')
+  const folder = await g.ensurePath([doc.issue_date.slice(0, 4), `Q${quarterOf(doc.issue_date)}`], settings.drive_invoices_id)
+  await g.uploadToDrive(await pdfBlob(doc, settings, creditedNumber), pdfFileName(doc), folder)
+  return true
+}
+
+export type MailKind = 'invoice' | 'quote' | 'reminder'
+
+export function fillTemplate(tpl: string, doc: Doc, settings: Settings) {
+  const vars: Record<string, string> = {
+    naam: doc.client_snapshot.contact?.replace(/^t\.?a\.?v\.?\s*/i, '').split(' ')[0] || doc.client_snapshot.name || '',
+    klant: doc.client_snapshot.name || '',
+    nummer: doc.number || '',
+    bedrag: eur(doc.total),
+    vervaldatum: fmtDate(doc.due_date),
+    factuurdatum: fmtDate(doc.issue_date),
+    opdracht: doc.project_name,
+    iban: settings.iban,
+  }
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
+}
+
+export function mailTemplate(kind: MailKind, settings: Settings) {
+  if (kind === 'quote') return { subject: settings.mail_quote_subject, body: settings.mail_quote_body }
+  if (kind === 'reminder') return { subject: settings.mail_reminder_subject, body: settings.mail_reminder_body }
+  return { subject: settings.mail_invoice_subject, body: settings.mail_invoice_body }
 }

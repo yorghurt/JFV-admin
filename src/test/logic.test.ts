@@ -113,3 +113,24 @@ describe('word-factuur', () => {
     expect(parseText(t)).toMatchObject({ excl: 42.5, vat: 8.93, total: 51.43, supplier: 'LBL Communicatie & Contentmarketing B.V.' })
   })
 })
+
+import { buildMime } from '../lib/google'
+import { fillTemplate } from '../lib/docs'
+import { DEFAULT_SETTINGS } from '../lib/db'
+describe('mail', () => {
+  it('MIME met bcc, UTF-8 onderwerp en bijlage', () => {
+    const m = buildMime({ to: 'a@b.nl', bcc: 'me@gmail.com', subject: 'Factuur 202613 – Jorg', body: 'Hé', attachment: { name: 'Factuur 202613 LBL.pdf', blob: new Blob() } }, 'QUJD')
+    expect(m).toContain('To: a@b.nl')
+    expect(m).toContain('Bcc: me@gmail.com')
+    expect(m).toMatch(/Subject: =\?UTF-8\?B\?/)
+    expect(m).toContain('filename="Factuur 202613 LBL.pdf"')
+    expect(m).toContain('QUJD')
+  })
+  it('sjabloon invullen', () => {
+    const d = { number: '202613', total: 51.43, due_date: '2026-11-01', issue_date: '2026-10-18', project_name: 'X', client_snapshot: { name: 'Medify Media B.V.', contact: 't.a.v. Ewout Sinkeldam' } } as never
+    const t = fillTemplate(DEFAULT_SETTINGS.mail_invoice_body, d, DEFAULT_SETTINGS)
+    expect(t).toMatch(/^Beste Ewout,/)
+    expect(t).toContain('factuur 202613 van € 51,43')
+    expect(t).toContain('vóór 01-11-2026')
+  })
+})

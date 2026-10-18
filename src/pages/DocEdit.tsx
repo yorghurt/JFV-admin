@@ -5,6 +5,8 @@ import { useStore } from '../lib/store'
 import { addDays, eur, fmtDate, isOverdue, lineTotal, todayIso, totals, uid } from '../lib/calc'
 import { blankDoc, convertQuote, createCredit, downloadPdf, finalizeInvoice, nextQuoteNumber, settleCredit, snapshot, withTotals } from '../lib/docs'
 import { Link } from 'react-router-dom'
+import { MailModal } from '../components/MailModal'
+import { saveToDrive, type MailKind } from '../lib/docs'
 import { KIND_LABEL, type Doc, type DocType, type Kind, type Line } from '../lib/types'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, Textarea } from '../components/ui'
 import { ClientForm } from './Clients'
@@ -22,6 +24,7 @@ export function DocEdit({ type }: { type: DocType }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [newClient, setNewClient] = useState(false)
+  const [mail, setMail] = useState<MailKind | null>(null)
 
   useEffect(() => {
     if (id === 'nieuw') setDoc({ ...blankDoc(type, settings), id: '' } as Doc)
@@ -89,16 +92,57 @@ export function DocEdit({ type }: { type: DocType }) {
       if (!doc.id) nav(`${base}/${saved.id}`, { replace: true })
     }, 'Opgeslagen')
 
+  async function finalize(d: Doc) {
+    const fresh = (await finalizeInvoice(d, docs)) as Doc
+    if (fresh.credit_of) await settleCredit(fresh, docs)
+    await reload()
+    return fresh
+  }
+
+  /** PDF naar Google Drive; fouten melden zonder de rest te blokkeren. */
+  async function driveNote(d: Doc) {
+    if (!settings.drive_invoices_id) return ''
+    try {
+      await saveToDrive(withTotals(d), settings, docs.find((x) => x.id === d.credit_of)?.number)
+      return ' en opgeslagen in Google Drive'
+    } catch (e) {
+      return ` (Drive: ${(e as Error).message})`
+    }
+  }
+
+  /** Voor het mailen: opslaan en bij een concept-factuur eerst definitief maken. */
+  async function prepareMail(): Promise<Doc> {
+    if (isInvoice && doc!.status === 'concept') {
+      if (!doc!.client_snapshot.name) throw new Error('Kies eerst een klant.')
+      if (!doc!.lines.length) throw new Error('Voeg minimaal één regel toe.')
+      const fresh = await finalize(await persist())
+      await driveNote(fresh)
+      return withTotals(fresh) as Doc
+    }
+    return withTotals(dirty || !doc!.id ? await persist() : doc!) as Doc
+  }
+
+  async function afterMail(sent: Doc, to: string) {
+    const now = new Date().toISOString()
+    const patch: Partial<Doc> = mail === 'reminder' ? { reminded_at: now } : { sent_at: now }
+    if (!isInvoice && sent.status === 'concept') patch.status = 'verzonden'
+    await db.save('documents', { ...sent, ...patch })
+    const client = clients.find((c) => c.id === sent.client_id)
+    if (client && !client.email) await db.save('clients', { ...client, email: to })
+    await reload()
+    if (sent.id !== doc!.id) nav(`${base}/${sent.id}`, { replace: true })
+    setMsg(mail === 'reminder' ? `Herinnering verstuurd naar ${to}` : `Verstuurd naar ${to}`)
+  }
+
   const onFinalize = () =>
     run(async () => {
       if (!doc.client_snapshot.name) throw new Error('Kies eerst een klant.')
       if (!doc.lines.length) throw new Error('Voeg minimaal één regel toe.')
       const saved = await persist()
-      const fresh = await finalizeInvoice(saved, docs)
-      if (fresh.credit_of) await settleCredit(fresh as Doc, docs)
-      await reload()
+      const fresh = await finalize(saved)
       nav(`${base}/${fresh.id}`, { replace: true })
-    }, 'Factuur definitief gemaakt')
+      setMsg('Factuur definitief gemaakt' + (await driveNote(fresh)))
+    })
 
   const onPdf = () =>
     run(async () => {
@@ -160,6 +204,16 @@ export function DocEdit({ type }: { type: DocType }) {
             <Button onClick={onPdf} disabled={busy}>
               PDF
             </Button>
+            {(doc.status === 'concept' || doc.status === 'verzonden' || !isInvoice) && (
+              <Button onClick={() => setMail(isInvoice ? 'invoice' : 'quote')} disabled={busy}>
+                Mailen
+              </Button>
+            )}
+            {isOverdue(doc) && (
+              <Button variant="accent" onClick={() => setMail('reminder')} disabled={busy}>
+                Herinnering
+              </Button>
+            )}
             <Button onClick={onSave} disabled={busy}>
               Opslaan
             </Button>
@@ -198,6 +252,13 @@ export function DocEdit({ type }: { type: DocType }) {
         </div>
       )}
       {msg && <p className={`mb-3 text-sm ${msg.startsWith('Fout') ? 'text-red-600' : 'text-green-700'}`}>{msg}</p>}
+      {(doc.sent_at || doc.reminded_at) && (
+        <p className="mb-3 text-xs text-stone-500">
+          {doc.sent_at && `Gemaild op ${fmtDate(doc.sent_at)}`}
+          {doc.sent_at && doc.reminded_at && ' · '}
+          {doc.reminded_at && `Herinnering op ${fmtDate(doc.reminded_at)}`}
+        </p>
+      )}
       {sourceQuote && <p className="mb-3 text-xs text-stone-500">Aangemaakt vanuit offerte {sourceQuote.number}</p>}
       {credited && (
         <p className="mb-3 rounded-lg bg-brand-light p-3 text-sm">
@@ -364,6 +425,17 @@ export function DocEdit({ type }: { type: DocType }) {
         </div>
       )}
 
+      {mail && (
+        <MailModal
+          doc={withTotals(doc) as Doc}
+          kind={mail}
+          settings={settings}
+          creditedNumber={credited ? credited.number : null}
+          prepare={prepareMail}
+          onSent={afterMail}
+          onClose={() => setMail(null)}
+        />
+      )}
       {newClient && (
         <ClientForm
           onClose={() => setNewClient(false)}

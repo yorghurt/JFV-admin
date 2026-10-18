@@ -119,3 +119,18 @@ create policy own_files on storage.objects for all
 -- Toegang voor ingelogde gebruikers (nieuwere Supabase-projecten geven dit niet automatisch)
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on settings, clients, products, documents, expenses to authenticated;
+
+-- Mail + Google Drive (zie ook migratie-003)
+alter table settings add column if not exists drive_invoices_id text;
+alter table settings add column if not exists drive_invoices_name text;
+alter table settings add column if not exists drive_receipts_id text;
+alter table settings add column if not exists drive_receipts_name text;
+alter table settings add column if not exists mail_bcc text;
+alter table settings add column if not exists mail_invoice_subject text;
+alter table settings add column if not exists mail_invoice_body text;
+alter table settings add column if not exists mail_quote_subject text;
+alter table settings add column if not exists mail_quote_body text;
+alter table settings add column if not exists mail_reminder_subject text;
+alter table settings add column if not exists mail_reminder_body text;
+alter table documents add column if not exists sent_at timestamptz;
+alter table documents add column if not exists reminded_at timestamptz;
