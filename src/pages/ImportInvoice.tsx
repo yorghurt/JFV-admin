@@ -92,7 +92,7 @@ export function ImportInvoice({ onClose }: { onClose: () => void }) {
         <QueueStatus index={q.index} count={q.count} progress={q.progress} name={file?.name} />
       ) : (
         <div className="space-y-3">
-          <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">Controleer de uitgelezen gegevens: {file?.name}
+          <p className="rounded-lg bg-stone-50 p-2 text-xs text-stone-600">Controleer de uitgelezen gegevens: {file?.name}
             {saved > 0 && ` · ${saved} opgeslagen`}
           </p>
           <div className="grid grid-cols-2 gap-3">

@@ -25,7 +25,7 @@ describe('bedragen', () => {
   })
 })
 
-const doc = (p: Partial<Doc>): Doc => ({ id: 'x', doc_type: 'factuur', number: '1', status: 'verzonden', client_id: null, client_snapshot: {}, issue_date: '2026-09-28', due_date: '2026-10-12', project_name: '', po_number: '', note: '', show_rental_link: false, lines: [], vat_rate: 21, subtotal: 100, vat_amount: 21, total: 121, imported: false, file_path: null, source_quote_id: null, paid_at: null, ...p })
+const doc = (p: Partial<Doc>): Doc => ({ id: 'x', doc_type: 'factuur', number: '1', status: 'verzonden', client_id: null, client_snapshot: {}, issue_date: '2026-09-28', due_date: '2026-10-12', project_name: '', po_number: '', note: '', show_rental_link: false, lines: [], vat_rate: 21, subtotal: 100, vat_amount: 21, total: 121, imported: false, file_path: null, source_quote_id: null, credit_of: null, paid_at: null, ...p })
 
 describe('periodes', () => {
   it('kwartaal en concepten', () => {

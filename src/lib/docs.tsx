@@ -24,6 +24,7 @@ export function blankDoc(type: DocType, settings: Settings): Omit<Doc, 'id'> & {
     imported: false,
     file_path: null,
     source_quote_id: null,
+    credit_of: null,
     paid_at: null,
   }
 }
@@ -75,10 +76,45 @@ export async function convertQuote(quote: Doc, settings: Settings) {
   return inv
 }
 
-export async function downloadPdf(doc: Doc, settings: Settings) {
+/** Creditfactuur: kopie met negatieve bedragen, zelfde nummerreeks (krijgt nummer bij definitief maken). */
+export async function createCredit(inv: Doc, settings: Settings) {
+  const issue = todayIso()
+  const lines = inv.lines.length
+    ? inv.lines.map((l) => ({ ...l, id: uid(), price: -Math.abs(Number(l.price)) }))
+    : [{ id: uid(), kind: null, product_id: null, date: null, description: `Creditering factuur ${inv.number}`, quantity: 1, unit: 'dag' as const, price: -Math.abs(Number(inv.subtotal)) }]
+  return db.save(
+    'documents',
+    withTotals({
+      ...blankDoc('factuur', settings),
+      client_id: inv.client_id,
+      client_snapshot: inv.client_snapshot,
+      project_name: inv.project_name,
+      po_number: inv.po_number,
+      lines,
+      vat_rate: inv.vat_rate,
+      issue_date: issue,
+      due_date: issue,
+      credit_of: inv.id,
+    }),
+  )
+}
+
+/** Na definitief maken van een creditfactuur: bij volledige creditering origineel op 'gecrediteerd'. */
+export async function settleCredit(credit: Doc, docs: Doc[]) {
+  const orig = docs.find((d) => d.id === credit.credit_of)
+  if (!orig) return
+  const full = Math.abs(Number(credit.total) + Number(orig.total)) < 0.01
+  if (!full) return
+  const wasPaid = orig.status === 'betaald'
+  await db.save('documents', { ...orig, status: 'gecrediteerd' })
+  // Onbetaalde factuur volledig gecrediteerd: niets terug te betalen → credit direct verrekend
+  if (!wasPaid) await db.save('documents', { ...credit, status: 'betaald', paid_at: todayIso() })
+}
+
+export async function downloadPdf(doc: Doc, settings: Settings, creditedNumber?: string | null) {
   const [{ pdf }, { InvoicePdf }] = await Promise.all([import('@react-pdf/renderer'), import('../pdf/InvoicePdf')])
-  const blob = await pdf(<InvoicePdf doc={doc} settings={settings} />).toBlob()
-  const kind = doc.doc_type === 'offerte' ? 'Offerte' : 'Factuur'
+  const blob = await pdf(<InvoicePdf doc={doc} settings={settings} creditedNumber={creditedNumber} />).toBlob()
+  const kind = doc.doc_type === 'offerte' ? 'Offerte' : doc.credit_of ? 'Creditfactuur' : 'Factuur'
   const client = (doc.client_snapshot.name || '').split(' ')[0]
   download(`${kind} ${doc.number || 'concept'}${client ? ' ' + client : ''}.pdf`, blob)
 }

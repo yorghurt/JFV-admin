@@ -93,7 +93,7 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
       {!manual && !q.count ? (
         <div className="space-y-3">
           <UploadDrop onFiles={q.start} />
-          <button className="w-full text-center text-sm text-neutral-500 hover:text-neutral-900" onClick={() => setManual(true)}>
+          <button className="w-full text-center text-sm text-stone-500 hover:text-ink" onClick={() => setManual(true)}>
             Handmatig invoeren zonder bestand
           </button>
         </div>
@@ -102,7 +102,7 @@ function ExpenseForm({ initial, onClose }: { initial?: Expense; onClose: () => v
       ) : (
         <div className="space-y-3">
           {q.file && (
-            <p className="rounded-lg bg-neutral-50 p-2 text-xs text-neutral-600">
+            <p className="rounded-lg bg-stone-50 p-2 text-xs text-stone-600">
               Controleer de uitgelezen gegevens: {q.file.name}
               {saved > 0 && ` · ${saved} opgeslagen`}
             </p>
@@ -188,24 +188,24 @@ export function Expenses() {
       <PageHeader title="Uitgaven" actions={<Button variant="primary" onClick={() => setEdit('new')}>+ Inkoopfactuur / bon</Button>} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <PeriodPicker {...period} allowYear />
-        <span className="text-sm text-neutral-500">
-          Totaal: <span className="font-medium tabular text-neutral-900">{eur(sum)}</span>
+        <span className="text-sm text-stone-500">
+          Totaal: <span className="font-medium tabular text-ink">{eur(sum)}</span>
         </span>
       </div>
       <Card>
         {rows.length === 0 ? (
           <Empty>Geen uitgaven in deze periode.</Empty>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-stone-100">
             {rows.map((e) => (
               <li key={e.id}>
-                <button onClick={() => setEdit(e)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50">
-                  <span className="w-20 shrink-0 text-xs text-neutral-500">{fmtDate(e.date)}</span>
+                <button onClick={() => setEdit(e)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-stone-50">
+                  <span className="w-20 shrink-0 text-xs text-stone-500">{fmtDate(e.date)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{e.supplier || e.description || '—'}</span>
-                    <span className="block truncate text-xs text-neutral-500">{e.category}</span>
+                    <span className="block truncate text-xs text-stone-500">{e.category}</span>
                   </span>
-                  {e.file_path && <span className="text-xs text-neutral-400" title="Bestand bijgevoegd">📎</span>}
+                  {e.file_path && <span className="text-xs text-stone-400" title="Bestand bijgevoegd">📎</span>}
                   <span className="text-sm font-medium tabular">{eur(e.total)}</span>
                 </button>
               </li>

@@ -7,6 +7,7 @@ import { Badge, Button, Card, Empty, PageHeader, Tabs } from '../components/ui'
 import { ImportInvoice } from './ImportInvoice'
 
 export function displayStatus(d: Doc) {
+  if (d.credit_of) return d.status === 'betaald' ? 'verrekend' : d.status === 'verzonden' ? 'terug te betalen' : d.status
   return isOverdue(d) ? 'vervallen' : d.status
 }
 
@@ -65,14 +66,14 @@ export function DocList({ type }: { type: DocType }) {
         {rows.length === 0 ? (
           <Empty>Nog geen {type === 'factuur' ? 'facturen' : 'offertes'}.</Empty>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-stone-100">
             {rows.map((d) => (
               <li key={d.id}>
-                <Link to={`${base}/${d.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50">
+                <Link to={`${base}/${d.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50">
                   <div className="w-24 shrink-0 text-sm font-medium tabular">{d.number || '—'}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm">{d.client_snapshot.name || 'Geen klant'}</div>
-                    <div className="truncate text-xs text-neutral-500">
+                    <div className="truncate text-xs text-stone-500">
                       {fmtDate(d.issue_date)}
                       {d.project_name ? ` · ${d.project_name}` : ''}
                     </div>
@@ -81,6 +82,7 @@ export function DocList({ type }: { type: DocType }) {
                     <div className="text-sm font-medium tabular">{eur(d.total)}</div>
                     <div className="mt-0.5 flex justify-end gap-1">
                       {d.imported && <Badge status="geïmporteerd" />}
+                      {d.credit_of && <Badge status="credit" />}
                       <Badge status={displayStatus(d)} />
                     </div>
                   </div>

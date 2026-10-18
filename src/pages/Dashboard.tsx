@@ -20,7 +20,7 @@ export function Dashboard() {
   const recentInv = [...invoices].sort((a, b) => b.issue_date.localeCompare(a.issue_date)).slice(0, 6)
   const recentExp = [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6)
 
-  if (loading) return <p className="text-sm text-neutral-500">Laden…</p>
+  if (loading) return <p className="text-sm text-stone-500">Laden…</p>
 
   return (
     <>
@@ -62,10 +62,10 @@ export function Dashboard() {
           [`Btw Q${q}`, eur(round2(cur.vatOut - cur.vatIn)), cur.vatOut - cur.vatIn >= 0 ? 'te betalen' : 'terug te vragen'],
           ['Openstaand', eur(openSum), `${open.length} facturen`],
         ].map(([l, v, s]) => (
-          <div key={l} className="rounded-xl border border-neutral-200 bg-white p-4">
-            <div className="text-xs text-neutral-500">{l}</div>
+          <div key={l} className="rounded-xl border border-stone-200 bg-white p-4">
+            <div className="text-xs text-stone-500">{l}</div>
             <div className="mt-1 text-lg font-semibold tabular">{v}</div>
-            <div className="text-xs text-neutral-400">{s}</div>
+            <div className="text-xs text-stone-400">{s}</div>
           </div>
         ))}
       </div>
@@ -82,19 +82,19 @@ export function Dashboard() {
         <Card>
           <div className="flex items-center justify-between px-4 pt-3">
             <h2 className="text-sm font-medium">Recente facturen</h2>
-            <Link to="/facturen" className="text-xs text-neutral-500 hover:text-neutral-900">
+            <Link to="/facturen" className="text-xs text-stone-500 hover:text-ink">
               Alle →
             </Link>
           </div>
           {recentInv.length === 0 ? (
             <Empty>Nog geen facturen.</Empty>
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-stone-100">
               {recentInv.map((d) => (
                 <li key={d.id}>
-                  <Link to={`/facturen/${d.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 hover:bg-neutral-50">
+                  <Link to={`/facturen/${d.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 hover:bg-stone-50">
                     <span className="min-w-0 truncate text-sm">
-                      <span className="mr-2 tabular text-neutral-500">{d.number || '—'}</span>
+                      <span className="mr-2 tabular text-stone-500">{d.number || '—'}</span>
                       {d.client_snapshot.name}
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
@@ -110,18 +110,18 @@ export function Dashboard() {
         <Card>
           <div className="flex items-center justify-between px-4 pt-3">
             <h2 className="text-sm font-medium">Recente uitgaven</h2>
-            <Link to="/uitgaven" className="text-xs text-neutral-500 hover:text-neutral-900">
+            <Link to="/uitgaven" className="text-xs text-stone-500 hover:text-ink">
               Alle →
             </Link>
           </div>
           {recentExp.length === 0 ? (
             <Empty>Nog geen uitgaven.</Empty>
           ) : (
-            <ul className="divide-y divide-neutral-100">
+            <ul className="divide-y divide-stone-100">
               {recentExp.map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
                   <span className="min-w-0 truncate text-sm">
-                    <span className="mr-2 text-xs text-neutral-500">{fmtDate(e.date)}</span>
+                    <span className="mr-2 text-xs text-stone-500">{fmtDate(e.date)}</span>
                     {e.supplier || e.description}
                   </span>
                   <span className="shrink-0 text-sm tabular">{eur(e.total)}</span>

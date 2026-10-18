@@ -71,6 +71,7 @@ create table if not exists documents (
   imported boolean default false,
   file_path text,
   source_quote_id uuid references documents on delete set null,
+  credit_of uuid references documents on delete set null,
   paid_at date,
   created_at timestamptz default now(),
   unique (user_id, doc_type, number)

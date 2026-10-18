@@ -52,7 +52,7 @@ export function nextNumber(existing: (string | null)[], year: number, suffix = '
 }
 
 export function isOverdue(d: Doc, today = todayIso()) {
-  return d.doc_type === 'factuur' && d.status === 'verzonden' && !!d.due_date && d.due_date < today
+  return d.doc_type === 'factuur' && !d.credit_of && d.status === 'verzonden' && !!d.due_date && d.due_date < today
 }
 
 export interface Period {

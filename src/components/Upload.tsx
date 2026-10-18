@@ -22,11 +22,11 @@ export function UploadDrop({ onFiles }: { onFiles: (files: File[]) => void }) {
         pick(e.dataTransfer.files)
       }}
       onClick={() => ref.current?.click()}
-      className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${drag ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 hover:border-neutral-400'}`}
+      className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${drag ? 'border-ink bg-stone-50' : 'border-stone-300 hover:border-stone-400'}`}
     >
       <input ref={ref} type="file" multiple accept="image/*,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => pick(e.target.files)} />
       <p className="text-sm font-medium">Sleep PDF's, Word-bestanden of foto's hierheen</p>
-      <p className="mt-1 text-xs text-neutral-500">of tik om bestanden te kiezen / foto te maken · meerdere tegelijk kan</p>
+      <p className="mt-1 text-xs text-stone-500">of tik om bestanden te kiezen / foto te maken · meerdere tegelijk kan</p>
     </div>
   )
 }
@@ -92,9 +92,9 @@ export function QueueStatus({ index, count, progress, name }: { index: number; c
       <p className="text-sm font-medium">
         {count > 1 ? `Bestand ${index + 1} van ${count} wordt gelezen…` : 'Document wordt gelezen…'}
       </p>
-      {name && <p className="mt-1 truncate text-xs text-neutral-500">{name}</p>}
-      <div className="mx-auto mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-neutral-200">
-        <div className="h-full bg-neutral-900 transition-all" style={{ width: `${Math.max(5, progress * 100)}%` }} />
+      {name && <p className="mt-1 truncate text-xs text-stone-500">{name}</p>}
+      <div className="mx-auto mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-stone-200">
+        <div className="h-full bg-ink transition-all" style={{ width: `${Math.max(5, progress * 100)}%` }} />
       </div>
     </div>
   )

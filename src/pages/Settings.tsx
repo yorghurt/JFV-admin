@@ -65,7 +65,7 @@ export function SettingsPage() {
           {text('rental_list_url', 'Link verhuurlijst (URL)')}
         </div>
       </Card>
-      <p className="mt-4 text-xs text-neutral-500">Prijzen van fotografie, video en apparatuur beheer je onder Producten.</p>
+      <p className="mt-4 text-xs text-stone-500">Prijzen van fotografie, video en apparatuur beheer je onder Producten.</p>
     </>
   )
 }

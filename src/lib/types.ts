@@ -1,7 +1,7 @@
 export type Kind = 'fotografie' | 'video' | 'apparatuur'
 export type Unit = 'dagdeel' | 'dag'
 export type DocType = 'factuur' | 'offerte'
-export type InvoiceStatus = 'concept' | 'verzonden' | 'betaald'
+export type InvoiceStatus = 'concept' | 'verzonden' | 'betaald' | 'gecrediteerd'
 export type QuoteStatus = 'concept' | 'verzonden' | 'geaccepteerd' | 'afgewezen'
 
 export interface Settings {
@@ -71,6 +71,7 @@ export interface Doc {
   imported: boolean
   file_path: string | null
   source_quote_id: string | null
+  credit_of: string | null
   paid_at: string | null
   created_at?: string
 }

@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import * as db from '../lib/db'
 import { useStore } from '../lib/store'
 import { addDays, eur, fmtDate, isOverdue, lineTotal, todayIso, totals, uid } from '../lib/calc'
-import { blankDoc, convertQuote, downloadPdf, finalizeInvoice, nextQuoteNumber, snapshot, withTotals } from '../lib/docs'
+import { blankDoc, convertQuote, createCredit, downloadPdf, finalizeInvoice, nextQuoteNumber, settleCredit, snapshot, withTotals } from '../lib/docs'
+import { Link } from 'react-router-dom'
 import { KIND_LABEL, type Doc, type DocType, type Kind, type Line } from '../lib/types'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, Textarea } from '../components/ui'
 import { ClientForm } from './Clients'
@@ -30,7 +31,7 @@ export function DocEdit({ type }: { type: DocType }) {
   const t = useMemo(() => (doc ? totals(doc.lines, doc.vat_rate) : { subtotal: 0, vat: 0, total: 0 }), [doc])
 
   if (store.loading) return null
-  if (!doc) return <p className="text-sm text-neutral-500">Niet gevonden.</p>
+  if (!doc) return <p className="text-sm text-stone-500">Niet gevonden.</p>
 
   const update = (patch: Partial<Doc>) => {
     setDoc((d) => ({ ...d!, ...patch }))
@@ -94,6 +95,7 @@ export function DocEdit({ type }: { type: DocType }) {
       if (!doc.lines.length) throw new Error('Voeg minimaal één regel toe.')
       const saved = await persist()
       const fresh = await finalizeInvoice(saved, docs)
+      if (fresh.credit_of) await settleCredit(fresh as Doc, docs)
       await reload()
       nav(`${base}/${fresh.id}`, { replace: true })
     }, 'Factuur definitief gemaakt')
@@ -102,7 +104,7 @@ export function DocEdit({ type }: { type: DocType }) {
     run(async () => {
       const saved = dirty || !doc.id ? await persist() : doc
       if (!doc.id) nav(`${base}/${saved.id}`, { replace: true })
-      await downloadPdf(withTotals(saved), settings)
+      await downloadPdf(withTotals(saved), settings, docs.find((d) => d.id === saved.credit_of)?.number)
     })
 
   const onStatus = (status: string) =>
@@ -118,6 +120,14 @@ export function DocEdit({ type }: { type: DocType }) {
       nav(`/facturen/${inv.id}`)
     })
 
+  const onCredit = () =>
+    run(async () => {
+      if (!confirm(`Creditfactuur maken voor factuur ${doc.number}?`)) return
+      const c = await createCredit(doc, settings)
+      await reload()
+      nav(`/facturen/${c.id}`)
+    })
+
   const onDelete = () =>
     run(async () => {
       if (!confirm('Verwijderen?')) return
@@ -128,12 +138,17 @@ export function DocEdit({ type }: { type: DocType }) {
     })
 
   const isInvoice = type === 'factuur'
-  const title = doc.id ? `${isInvoice ? 'Factuur' : 'Offerte'} ${doc.number || '(concept)'}` : `Nieuwe ${type}`
+  const isCredit = !!doc.credit_of
+  const label = isCredit ? 'Creditfactuur' : isInvoice ? 'Factuur' : 'Offerte'
+  const title = doc.id ? `${label} ${doc.number || '(concept)'}` : `Nieuwe ${type}`
+  const credited = docs.find((d) => d.id === doc.credit_of)
+  const credits = docs.filter((d) => d.credit_of && d.credit_of === doc.id)
+  const canCredit = isInvoice && !isCredit && doc.id && ['verzonden', 'betaald'].includes(doc.status)
   const canDelete = doc.status === 'concept' || doc.imported || !isInvoice
   const sourceQuote = doc.source_quote_id && docs.find((d) => d.id === doc.source_quote_id)
   const productsByKind = (['fotografie', 'video', 'apparatuur'] as Kind[]).map((k) => [k, products.filter((p) => p.kind === k && p.active)] as const)
 
-  if (doc.imported) return <ImportedView doc={doc} onStatus={onStatus} onDelete={onDelete} busy={busy} />
+  if (doc.imported) return <ImportedView doc={doc} onStatus={onStatus} onDelete={onDelete} onCredit={canCredit ? onCredit : undefined} busy={busy} />
 
   return (
     <>
@@ -155,7 +170,12 @@ export function DocEdit({ type }: { type: DocType }) {
             )}
             {isInvoice && doc.status === 'verzonden' && (
               <Button variant="primary" onClick={() => onStatus('betaald')} disabled={busy}>
-                Markeer als betaald
+                {isCredit ? 'Markeer als terugbetaald' : 'Markeer als betaald'}
+              </Button>
+            )}
+            {canCredit && (
+              <Button onClick={onCredit} disabled={busy}>
+                Creditfactuur
               </Button>
             )}
             {isInvoice && doc.status === 'betaald' && (
@@ -178,7 +198,26 @@ export function DocEdit({ type }: { type: DocType }) {
         </div>
       )}
       {msg && <p className={`mb-3 text-sm ${msg.startsWith('Fout') ? 'text-red-600' : 'text-green-700'}`}>{msg}</p>}
-      {sourceQuote && <p className="mb-3 text-xs text-neutral-500">Aangemaakt vanuit offerte {sourceQuote.number}</p>}
+      {sourceQuote && <p className="mb-3 text-xs text-stone-500">Aangemaakt vanuit offerte {sourceQuote.number}</p>}
+      {credited && (
+        <p className="mb-3 rounded-lg bg-brand-light p-3 text-sm">
+          Creditfactuur voor{' '}
+          <Link className="underline" to={`/facturen/${credited.id}`}>
+            factuur {credited.number}
+          </Link>
+          . Bedragen zijn negatief. Pas regels aan voor een gedeeltelijke creditering.
+        </p>
+      )}
+      {credits.length > 0 && (
+        <p className="mb-3 text-xs text-stone-500">
+          Gecrediteerd met:{' '}
+          {credits.map((c) => (
+            <Link key={c.id} className="mr-2 underline" to={`/facturen/${c.id}`}>
+              {c.number || 'concept'}
+            </Link>
+          ))}
+        </p>
+      )}
 
       <Card className="mb-4 p-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -237,7 +276,7 @@ export function DocEdit({ type }: { type: DocType }) {
       </Card>
 
       <Card className="mb-4">
-        <div className="hidden grid-cols-[1fr_8rem_5rem_6rem_6rem_2rem] gap-2 border-b border-neutral-100 px-4 py-2 text-xs font-medium text-neutral-500 sm:grid">
+        <div className="hidden grid-cols-[1fr_8rem_5rem_6rem_6rem_2rem] gap-2 border-b border-stone-100 px-4 py-2 text-xs font-medium text-stone-500 sm:grid">
           <span>Omschrijving</span>
           <span>Datum</span>
           <span>Aantal</span>
@@ -246,9 +285,9 @@ export function DocEdit({ type }: { type: DocType }) {
           <span />
         </div>
         {doc.lines.map((l) => (
-          <div key={l.id} className="grid grid-cols-2 gap-2 border-b border-neutral-100 px-4 py-3 sm:grid-cols-[1fr_8rem_5rem_6rem_6rem_2rem] sm:items-center">
+          <div key={l.id} className="grid grid-cols-2 gap-2 border-b border-stone-100 px-4 py-3 sm:grid-cols-[1fr_8rem_5rem_6rem_6rem_2rem] sm:items-center">
             <div className="col-span-2 sm:col-span-1">
-              {l.kind && <span className="mb-0.5 block text-[11px] uppercase tracking-wide text-neutral-400">{KIND_LABEL[l.kind]}</span>}
+              {l.kind && <span className="mb-0.5 block text-[11px] uppercase tracking-wide text-stone-400">{KIND_LABEL[l.kind]}</span>}
               <Input value={l.description} onChange={(e) => updateLine(l.id, { description: e.target.value })} placeholder="Omschrijving" />
             </div>
             <Input type="date" value={l.date || ''} onChange={(e) => updateLine(l.id, { date: e.target.value || null })} />
@@ -261,11 +300,11 @@ export function DocEdit({ type }: { type: DocType }) {
                 onChange={(e) => updateLine(l.id, { quantity: Number(e.target.value) })}
                 onBlur={() => l.kind === 'apparatuur' && l.quantity < 0.5 && updateLine(l.id, { quantity: 0.5 })}
               />
-              <span className="text-xs text-neutral-400">{l.unit === 'dag' ? 'dag' : 'dd'}</span>
+              <span className="text-xs text-stone-400">{l.unit === 'dag' ? 'dag' : 'dd'}</span>
             </div>
             <Input type="number" step="0.01" value={l.price} onChange={(e) => updateLine(l.id, { price: Number(e.target.value) })} />
             <span className="text-right text-sm tabular">{eur(lineTotal(l))}</span>
-            <button onClick={() => update({ lines: doc.lines.filter((x) => x.id !== l.id) })} className="text-right text-neutral-400 hover:text-red-600" aria-label="Verwijder regel">
+            <button onClick={() => update({ lines: doc.lines.filter((x) => x.id !== l.id) })} className="text-right text-stone-400 hover:text-red-600" aria-label="Verwijder regel">
               ✕
             </button>
           </div>
@@ -286,16 +325,16 @@ export function DocEdit({ type }: { type: DocType }) {
             )}
             <option value="_vrij">Vrije regel</option>
           </Select>
-          {products.length === 0 && <span className="text-xs text-neutral-500">Tip: voeg producten toe onder Producten.</span>}
+          {products.length === 0 && <span className="text-xs text-stone-500">Tip: voeg producten toe onder Producten.</span>}
         </div>
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-[1fr_18rem]">
         <Card className="p-4">
-          <Field label="Toelichting (cursief op factuur)">
+          <Field label="Toelichting (op factuur)">
             <Textarea rows={4} value={doc.note} onChange={(e) => update({ note: e.target.value })} />
           </Field>
-          <label className="mt-2 flex items-center gap-2 text-sm text-neutral-600">
+          <label className="mt-2 flex items-center gap-2 text-sm text-stone-600">
             <input type="checkbox" checked={doc.show_rental_link} onChange={(e) => update({ show_rental_link: e.target.checked })} />
             Link "Verhuurlijst" tonen
             {!settings.rental_list_url && <span className="text-xs text-amber-700">(stel URL in bij Instellingen)</span>}
@@ -303,14 +342,14 @@ export function DocEdit({ type }: { type: DocType }) {
         </Card>
         <Card className="space-y-2 p-4 text-sm tabular">
           <div className="flex justify-between">
-            <span className="text-neutral-500">Subtotaal</span>
+            <span className="text-stone-500">Subtotaal</span>
             <span>{eur(t.subtotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-neutral-500">Btw ({doc.vat_rate}%)</span>
+            <span className="text-stone-500">Btw ({doc.vat_rate}%)</span>
             <span>{eur(t.vat)}</span>
           </div>
-          <div className="flex justify-between border-t border-neutral-100 pt-2 text-base font-semibold">
+          <div className="flex justify-between border-t border-stone-100 pt-2 text-base font-semibold">
             <span>Totaal</span>
             <span>{eur(t.total)}</span>
           </div>
@@ -338,7 +377,7 @@ export function DocEdit({ type }: { type: DocType }) {
   )
 }
 
-function ImportedView({ doc, onStatus, onDelete, busy }: { doc: Doc; onStatus: (s: string) => void; onDelete: () => void; busy: boolean }) {
+function ImportedView({ doc, onStatus, onDelete, onCredit, busy }: { doc: Doc; onStatus: (s: string) => void; onDelete: () => void; onCredit?: () => void; busy: boolean }) {
   async function open() {
     const url = doc.file_path && (await db.fileUrl(doc.file_path))
     if (url) window.open(url, '_blank')
@@ -350,7 +389,7 @@ function ImportedView({ doc, onStatus, onDelete, busy }: { doc: Doc; onStatus: (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Vervaldatum is verstreken. Check je rekening of de betaling binnen is.</div>
       )}
       <Card className="space-y-2 p-4 text-sm">
-        <p className="text-xs text-neutral-500">Geïmporteerde factuur</p>
+        <p className="text-xs text-stone-500">Geïmporteerde factuur</p>
         <Row k="Klant" v={doc.client_snapshot.name || ''} />
         <Row k="Factuurdatum" v={fmtDate(doc.issue_date)} />
         <Row k="Bedrag excl." v={eur(doc.subtotal)} />
@@ -358,6 +397,7 @@ function ImportedView({ doc, onStatus, onDelete, busy }: { doc: Doc; onStatus: (
         <Row k="Totaal" v={eur(doc.total)} />
         <div className="flex flex-wrap gap-2 pt-3">
           {doc.file_path && <Button onClick={open}>Origineel bekijken</Button>}
+          {onCredit && <Button onClick={onCredit}>Creditfactuur</Button>}
           {doc.status === 'verzonden' ? (
             <Button variant="primary" disabled={busy} onClick={() => onStatus('betaald')}>
               Markeer als betaald
@@ -378,7 +418,7 @@ function ImportedView({ doc, onStatus, onDelete, busy }: { doc: Doc; onStatus: (
 
 const Row = ({ k, v }: { k: string; v: string }) => (
   <div className="flex justify-between">
-    <span className="text-neutral-500">{k}</span>
+    <span className="text-stone-500">{k}</span>
     <span className="tabular">{v}</span>
   </div>
 )

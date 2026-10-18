@@ -78,17 +78,17 @@ export function Clients() {
         {clients.length === 0 ? (
           <Empty>Nog geen klanten.</Empty>
         ) : (
-          <ul className="divide-y divide-neutral-100">
+          <ul className="divide-y divide-stone-100">
             {[...clients]
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((c) => (
                 <li key={c.id}>
-                  <button onClick={() => setEdit(c)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-neutral-50">
+                  <button onClick={() => setEdit(c)} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-stone-50">
                     <div>
                       <div className="text-sm font-medium">{c.name}</div>
-                      <div className="text-xs text-neutral-500">{[c.address, c.postal_city].filter(Boolean).join(', ')}</div>
+                      <div className="text-xs text-stone-500">{[c.address, c.postal_city].filter(Boolean).join(', ')}</div>
                     </div>
-                    <span className="text-sm tabular text-neutral-500">{eur(revenue(c.id))}</span>
+                    <span className="text-sm tabular text-stone-500">{eur(revenue(c.id))}</span>
                   </button>
                 </li>
               ))}

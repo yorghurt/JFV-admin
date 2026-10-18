@@ -57,7 +57,7 @@ function ProductForm({ product, kind, onClose }: { product?: Product; kind: Kind
             </Select>
           </Field>
         </div>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <label className="flex items-center gap-2 text-sm text-stone-600">
           <input type="checkbox" checked={p.active} onChange={(e) => setP({ ...p, active: e.target.checked })} />
           Actief (zichtbaar bij factureren)
         </label>
@@ -90,7 +90,7 @@ export function Products() {
           const list = products.filter((p) => p.kind === k).sort((a, b) => a.name.localeCompare(b.name))
           return (
             <Card key={k}>
-              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
                 <h2 className="font-medium">{KIND_LABEL[k]}</h2>
                 <Button variant="ghost" onClick={() => setEdit({ kind: k })}>
                   + {k === 'apparatuur' ? 'Pakket' : 'Toevoegen'}
@@ -99,13 +99,13 @@ export function Products() {
               {list.length === 0 ? (
                 <Empty>Nog niets toegevoegd.</Empty>
               ) : (
-                <ul className="divide-y divide-neutral-100">
+                <ul className="divide-y divide-stone-100">
                   {list.map((p) => (
                     <li key={p.id}>
-                      <button onClick={() => setEdit({ product: p, kind: k })} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-neutral-50">
-                        <span className={`text-sm ${p.active ? '' : 'text-neutral-400 line-through'}`}>{p.name}</span>
-                        <span className="text-sm tabular text-neutral-600">
-                          {eur(p.price)} <span className="text-neutral-400">/ {p.unit}</span>
+                      <button onClick={() => setEdit({ product: p, kind: k })} className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-stone-50">
+                        <span className={`text-sm ${p.active ? '' : 'text-stone-400 line-through'}`}>{p.name}</span>
+                        <span className="text-sm tabular text-stone-600">
+                          {eur(p.price)} <span className="text-stone-400">/ {p.unit}</span>
                         </span>
                       </button>
                     </li>

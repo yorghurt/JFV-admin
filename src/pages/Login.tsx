@@ -18,8 +18,8 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-neutral-200 bg-white p-6">
+    <div className="flex min-h-screen items-center justify-center bg-stone-50 p-4">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-stone-200 bg-white p-6">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="" className="h-10 w-10" />
           <h1 className="text-lg font-semibold">Administratie</h1>

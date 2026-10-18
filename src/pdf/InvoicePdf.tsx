@@ -1,181 +1,188 @@
-import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
-import { fmtDate, lineTotal, num, eur } from '../lib/calc'
+import { Document, Font, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { eur, fmtDate, lineTotal, num } from '../lib/calc'
 import type { Doc, Line, Settings } from '../lib/types'
 
+/** Huisstijl: geel uit het logo, Barlow Condensed voor koppen, Inter voor tekst. */
+export const BRAND = { yellow: '#FFC861', yellowSoft: '#FFF4DE', ink: '#1C1A17', grey: '#6E6A64', line: '#E8E4DC', paper: '#FAF8F4' }
+
+let fontsReady = false
+export function registerFonts(base = '/fonts/') {
+  if (fontsReady) return
+  Font.register({
+    family: 'Barlow',
+    fonts: [
+      { src: `${base}barlow-condensed-latin-600-normal.woff`, fontWeight: 600 },
+      { src: `${base}barlow-condensed-latin-700-normal.woff`, fontWeight: 700 },
+    ],
+  })
+  Font.register({
+    family: 'Inter',
+    fonts: [
+      { src: `${base}inter-latin-400-normal.woff` },
+      { src: `${base}inter-latin-600-normal.woff`, fontWeight: 600 },
+      { src: `${base}inter-latin-700-normal.woff`, fontWeight: 700 },
+    ],
+  })
+  Font.registerHyphenationCallback((w) => [w])
+  fontsReady = true
+}
+
+const C = BRAND
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 9, paddingTop: 70, paddingHorizontal: 42, paddingBottom: 100, color: '#000' },
-  client: { position: 'absolute', top: 88, left: 78, fontSize: 9.5 },
-  bold: { fontFamily: 'Helvetica-Bold' },
-  italic: { fontFamily: 'Helvetica-Oblique' },
-  logo: { position: 'absolute', top: 68, left: 396, width: 106, height: 106 },
-  title: { marginTop: 112, fontSize: 22, fontFamily: 'Helvetica-Bold', marginBottom: 18 },
-  metaRow: { flexDirection: 'row', marginBottom: 1.5 },
-  metaLabel: { width: 110 },
-  metaColon: { width: 34 },
-  dotted: { borderBottomWidth: 0.7, borderBottomColor: '#E7A64A', borderStyle: 'dotted' },
-  head: { flexDirection: 'row', paddingVertical: 8, marginTop: 30, borderTopWidth: 0.7, borderTopColor: '#E7A64A', borderStyle: 'dotted' },
-  cDesc: { flex: 1, paddingRight: 8 },
-  cQty: { width: 54 },
-  cPrice: { width: 75 },
-  cTotal: { width: 79 },
-  row: { flexDirection: 'row', marginBottom: 3 },
-  bullet: { width: 22, paddingLeft: 10 },
-  note: { fontFamily: 'Helvetica-Oblique', width: 290, marginTop: 8 },
-  link: { fontFamily: 'Helvetica-Oblique', color: '#1155CC', textDecoration: 'underline' },
-  totals: { marginTop: 50, marginLeft: 300, width: 211 },
-  totRow: { flexDirection: 'row', marginVertical: 6 },
-  totLabel: { flex: 1, textAlign: 'right' },
-  totColon: { width: 26, textAlign: 'center' },
-  totVal: { width: 66, textAlign: 'right' },
-  pay: { marginTop: 50 },
-  footer: { position: 'absolute', bottom: 40, left: 42, right: 42, flexDirection: 'row', fontSize: 9 },
+  page: { fontFamily: 'Inter', fontSize: 8.5, color: C.ink, paddingHorizontal: 48, paddingBottom: 70 },
+  band: { height: 8, backgroundColor: C.yellow, marginHorizontal: -48 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 34 },
+  sender: { textAlign: 'right', color: C.grey },
+  h1: { fontFamily: 'Barlow', fontWeight: 700, fontSize: 34, letterSpacing: 0.5, marginTop: 34 },
+  num: { fontFamily: 'Barlow', fontWeight: 600, color: C.grey },
+  label: { fontSize: 7, color: C.grey, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
+  metaRow: { flexDirection: 'row', marginTop: 22, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line },
+  th: { flexDirection: 'row', backgroundColor: C.yellowSoft, paddingVertical: 7, paddingHorizontal: 8, marginTop: 26, fontWeight: 600 },
+  tr: { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: C.line },
+  cD: { flex: 1, paddingRight: 8 },
+  cQ: { width: 64, textAlign: 'right' },
+  cP: { width: 70, textAlign: 'right' },
+  cT: { width: 70, textAlign: 'right' },
+  sub: { color: C.grey, fontSize: 7.5, marginTop: 2 },
+  note: { color: C.grey, marginTop: 10, paddingHorizontal: 8, width: 330 },
+  totals: { marginLeft: 'auto', width: 220, marginTop: 18 },
+  totRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, paddingHorizontal: 8 },
+  grand: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: C.yellow, paddingVertical: 9, paddingHorizontal: 8, marginTop: 6 },
+  grandTxt: { fontFamily: 'Barlow', fontWeight: 700, fontSize: 15 },
+  pay: { marginTop: 34, padding: 12, borderLeftWidth: 3, borderColor: C.yellow, backgroundColor: C.paper },
+  footer: { position: 'absolute', bottom: 28, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', color: C.grey, fontSize: 7.5, borderTopWidth: 1, borderColor: C.line, paddingTop: 8 },
 })
 
-function qty(n: number) {
-  return Number.isInteger(Number(n)) ? String(n) : num(n).replace(/0$/, '')
-}
-
+const qty = (n: number) => (Number.isInteger(Number(n)) ? String(n) : num(n).replace(/0$/, ''))
 const unitWord = (u: Line['unit'], n: number) => (u === 'dag' ? (n === 1 ? 'dag' : 'dagen') : n === 1 ? 'dagdeel' : 'dagdelen')
+const KIND = { apparatuur: 'Huur apparatuur', fotografie: 'Fotografie', video: 'Video' } as const
 
-const GROUP_LABEL = { apparatuur: 'huur apparatuur', fotografie: 'fotografie', video: 'video' } as const
-
-/** Opeenvolgende regels met dezelfde soort + datum krijgen één kopregel, zoals op de oude factuur. */
-function groupLines(lines: Line[]) {
-  const out: { header: string | null; lines: Line[] }[] = []
-  let key = ''
-  for (const l of lines) {
-    const k = l.date ? `${l.kind}|${l.date}` : ''
-    if (out.length && k === key) out[out.length - 1].lines.push(l)
-    else {
-      out.push({ header: l.date ? `${GROUP_LABEL[l.kind || 'apparatuur']} - ` : null, lines: [l] })
-      key = k
-    }
-  }
-  return out
-}
-
-export function InvoicePdf({ doc, settings, logoSrc = '/logo.png' }: { doc: Doc; settings: Settings; logoSrc?: string }) {
+export function InvoicePdf({ doc, settings, creditedNumber, logoSrc = '/logo.png', fontBase }: { doc: Doc; settings: Settings; creditedNumber?: string | null; logoSrc?: string; fontBase?: string }) {
+  registerFonts(fontBase)
   const isQuote = doc.doc_type === 'offerte'
-  const units = new Set(doc.lines.map((l) => l.unit))
-  const mixed = units.size > 1
-  const qtyHead = mixed ? 'Aantal' : units.has('dagdeel') ? 'Aantal\ndagdelen' : 'Aantal\ndagen'
+  const isCredit = !!doc.credit_of
+  const kind = isQuote ? 'Offerte' : isCredit ? 'Creditfactuur' : 'Factuur'
   const c = doc.client_snapshot || {}
-  const number = doc.number || 'CONCEPT'
+  const number = doc.number || 'concept'
 
   const meta: [string, string][] = [
     [isQuote ? 'Offertedatum' : 'Factuurdatum', fmtDate(doc.issue_date)],
-    ['Opdrachtnaam', doc.project_name],
-    [isQuote ? 'Offertenummer' : 'Factuurnummer', number],
-    [isQuote ? 'Geldig tot' : 'Vervaldatum', fmtDate(doc.due_date)],
+    isCredit ? ['Betreft factuur', creditedNumber || ''] : [isQuote ? 'Geldig tot' : 'Vervaldatum', fmtDate(doc.due_date)],
+    ['Opdracht', doc.project_name],
   ]
-  if (doc.po_number) meta.push(['PO-nummer:', doc.po_number])
+  if (doc.po_number) meta.push(['PO-nummer', doc.po_number])
 
   return (
-    <Document title={`${isQuote ? 'Offerte' : 'Factuur'} ${number}`} author={settings.company_name}>
+    <Document title={`${kind} ${number}`} author={settings.company_name}>
       <Page size="A4" style={s.page}>
-        <View style={s.client} fixed>
-          <Text style={s.bold}>{c.name}</Text>
-          {c.contact ? <Text>{c.contact}</Text> : null}
-          <Text>{c.address}</Text>
-          <Text>{c.postal_city}</Text>
-        </View>
-        <Image style={s.logo} src={logoSrc} fixed />
-
-        <Text style={s.title}>{isQuote ? 'Offerte' : 'Factuur'}</Text>
-        {meta.map(([k, v]) => (
-          <View key={k} style={s.metaRow}>
-            <Text style={s.metaLabel}>{k}</Text>
-            <Text style={s.metaColon}>:</Text>
-            <Text>{v}</Text>
+        <View style={s.band} fixed />
+        <View style={s.top}>
+          <Image src={logoSrc} style={{ width: 78, height: 78 }} />
+          <View style={s.sender}>
+            <Text style={{ fontWeight: 700, color: C.ink, fontSize: 9.5 }}>{settings.company_name}</Text>
+            <Text>{settings.owner_name}</Text>
+            <Text>{settings.address}</Text>
+            <Text>{settings.postal_city.replace(/\s+/g, ' ')}</Text>
+            <Text>{settings.phone}</Text>
+            {settings.email ? <Text>{settings.email}</Text> : null}
           </View>
-        ))}
-
-        <View style={[s.head, s.dotted]}>
-          <Text style={[s.cDesc, s.bold]}>Omschrijving</Text>
-          <Text style={[s.cQty, s.bold]}>{qtyHead}</Text>
-          <Text style={[s.cPrice, s.bold]}>{'Prijs EUR\nper eenheid'}</Text>
-          <Text style={[s.cTotal, s.bold]}>Prijs EUR</Text>
         </View>
 
-        {doc.note ? <Text style={s.note}>{doc.note}</Text> : null}
-        {doc.show_rental_link && settings.rental_list_url ? (
-          <Link style={s.link} src={settings.rental_list_url}>
-            Verhuurlijst
-          </Link>
-        ) : null}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text style={[s.h1, isCredit ? { fontSize: 30 } : {}]}>
+            {kind} <Text style={s.num}>{number}</Text>
+          </Text>
+          <View style={{ width: 200, marginBottom: 6 }}>
+            <Text style={s.label}>Aan</Text>
+            <Text style={{ fontWeight: 600 }}>{c.name}</Text>
+            {c.contact ? <Text>{c.contact}</Text> : null}
+            <Text>{c.address}</Text>
+            <Text>{(c.postal_city || '').replace(/\s+/g, ' ')}</Text>
+          </View>
+        </View>
 
-        <View style={{ marginTop: 18 }}>
-          {groupLines(doc.lines).map((g, gi) => (
-            <View key={gi} wrap={false} style={{ marginBottom: 4 }}>
-              {g.header ? (
-                <View style={s.row}>
-                  <Text style={s.bullet}>-</Text>
-                  <Text>
-                    {g.header}
-                    <Text style={s.italic}>{fmtDate(g.lines[0].date)}</Text>
-                  </Text>
-                </View>
-              ) : null}
-              {g.lines.map((l) => (
-                <View key={l.id} style={s.row}>
-                  <View style={[s.cDesc, { flexDirection: 'row' }]}>
-                    <Text style={s.bullet}>-</Text>
-                    <Text style={{ flex: 1 }}>{l.description}</Text>
-                  </View>
-                  <Text style={s.cQty}>{mixed ? `${qty(l.quantity)} ${unitWord(l.unit, l.quantity)}` : qty(l.quantity)}</Text>
-                  <Text style={s.cPrice}>{num(l.price)}</Text>
-                  <Text style={s.cTotal}>{num(lineTotal(l))}</Text>
-                </View>
-              ))}
+        <View style={s.metaRow}>
+          {meta.map(([k, v]) => (
+            <View key={k} style={{ flex: 1 }}>
+              <Text style={s.label}>{k}</Text>
+              <Text style={{ fontWeight: 600 }}>{v || '—'}</Text>
             </View>
           ))}
         </View>
 
+        <View style={s.th}>
+          <Text style={s.cD}>Omschrijving</Text>
+          <Text style={s.cQ}>Aantal</Text>
+          <Text style={s.cP}>Prijs</Text>
+          <Text style={s.cT}>Bedrag</Text>
+        </View>
+        {doc.lines.map((l) => {
+          const sub = [l.kind ? KIND[l.kind] : '', l.date ? fmtDate(l.date) : ''].filter(Boolean).join(' · ')
+          return (
+            <View key={l.id} style={s.tr} wrap={false}>
+              <View style={s.cD}>
+                <Text style={{ fontWeight: 600 }}>{l.description}</Text>
+                {sub ? <Text style={s.sub}>{sub}</Text> : null}
+              </View>
+              <Text style={s.cQ}>{`${qty(l.quantity)} ${unitWord(l.unit, Number(l.quantity))}`}</Text>
+              <Text style={s.cP}>{eur(l.price)}</Text>
+              <Text style={s.cT}>{eur(lineTotal(l))}</Text>
+            </View>
+          )
+        })}
+
+        {doc.note || (doc.show_rental_link && settings.rental_list_url) ? (
+          <Text style={s.note}>
+            {doc.note.replace(/^Toelichting:\s*/i, '')}{' '}
+            {doc.show_rental_link && settings.rental_list_url ? (
+              <Link src={settings.rental_list_url} style={{ color: C.ink, textDecoration: 'underline' }}>
+                Verhuurlijst
+              </Link>
+            ) : null}
+          </Text>
+        ) : null}
+
         <View style={s.totals} wrap={false}>
-          <View style={[s.dotted, { marginLeft: 100 }]} />
-          <View style={[s.totRow, { marginTop: 10 }]}>
-            <Text style={s.totLabel}>Subtotaal</Text>
-            <Text style={s.totColon}>:</Text>
-            <Text style={s.totVal}>{eur(doc.subtotal)}</Text>
+          <View style={s.totRow}>
+            <Text style={{ color: C.grey }}>Subtotaal</Text>
+            <Text>{eur(doc.subtotal)}</Text>
           </View>
           <View style={s.totRow}>
-            <Text style={s.totLabel}>BTW ({num(doc.vat_rate).replace(',00', '')}%)</Text>
-            <Text style={s.totColon}>:</Text>
-            <Text style={s.totVal}>{eur(doc.vat_amount)}</Text>
+            <Text style={{ color: C.grey }}>Btw {num(doc.vat_rate).replace(',00', '')}%</Text>
+            <Text>{eur(doc.vat_amount)}</Text>
           </View>
-          <View style={[s.dotted, { marginLeft: 100 }]} />
-          <View style={[s.totRow, { marginTop: 10 }]}>
-            <Text style={[s.totLabel, s.bold]}>{isQuote ? 'TOTAAL' : 'TOTAAL te voldoen'}</Text>
-            <Text style={[s.totColon, s.bold]}>:</Text>
-            <Text style={[s.totVal, s.bold]}>{eur(doc.total)}</Text>
+          <View style={s.grand}>
+            <Text style={s.grandTxt}>{isCredit ? 'TOTAAL CREDIT' : 'TOTAAL'}</Text>
+            <Text style={s.grandTxt}>{eur(doc.total)}</Text>
           </View>
-          <View style={[s.dotted, { marginLeft: 100 }]} />
         </View>
 
-        <Text style={s.pay} wrap={false}>
-          {isQuote
-            ? `Deze offerte is geldig tot ${fmtDate(doc.due_date)}.`
-            : `Ik verzoek u vriendelijk het bedrag binnen ${settings.payment_days} dagen te betalen op\nrekeningnummer ${settings.iban} onder vermelding van het factuurnummer.`}
-        </Text>
+        <View style={s.pay} wrap={false}>
+          {isQuote ? (
+            <>
+              <Text style={{ fontWeight: 600 }}>Geldig tot {fmtDate(doc.due_date)}</Text>
+              <Text>Akkoord? Laat het me weten, dan plan ik de opdracht in.</Text>
+            </>
+          ) : isCredit ? (
+            <>
+              <Text style={{ fontWeight: 600 }}>Creditering van factuur {creditedNumber}</Text>
+              <Text>Dit bedrag wordt verrekend met de oorspronkelijke factuur of aan u terugbetaald.</Text>
+            </>
+          ) : (
+            <>
+              <Text style={{ fontWeight: 600 }}>Graag binnen {settings.payment_days} dagen betalen</Text>
+              <Text>
+                Op {settings.iban} t.n.v. {settings.company_name}, o.v.v. factuurnummer <Text style={{ fontWeight: 600 }}>{number}</Text>.
+              </Text>
+            </>
+          )}
+        </View>
 
         <View style={s.footer} fixed>
-          <View style={{ width: 120 }}>
-            <Text style={s.bold}>{settings.company_name}</Text>
-            <Text>{settings.owner_name}</Text>
-            <Text>{settings.phone}</Text>
-          </View>
-          <View style={{ width: 200 }}>
-            <Text> </Text>
-            <Text>{settings.address}</Text>
-            <Text>{settings.postal_city}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text> </Text>
-            <Text>KVK: {settings.kvk}</Text>
-            <Text>BTW-nr: {settings.vat_number}</Text>
-            <Text>Rek.nr: {settings.iban}</Text>
-          </View>
-          <Text style={{ width: 20, textAlign: 'right', alignSelf: 'flex-end' }} render={({ pageNumber }) => String(pageNumber)} />
+          <Text>KvK {settings.kvk}</Text>
+          <Text>Btw {settings.vat_number}</Text>
+          <Text>IBAN {settings.iban}</Text>
+          <Text render={({ pageNumber, totalPages }) => `${pageNumber}/${totalPages}`} />
         </View>
       </Page>
     </Document>

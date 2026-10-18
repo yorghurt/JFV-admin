@@ -46,10 +46,10 @@ async function pdfDownload(name: string, title: string, subtitle: string, sectio
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <div className="text-xs text-neutral-500">{label}</div>
+    <div className="rounded-xl border border-stone-200 bg-white p-4">
+      <div className="text-xs text-stone-500">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular">{value}</div>
-      {sub && <div className="text-xs text-neutral-400">{sub}</div>}
+      {sub && <div className="text-xs text-stone-400">{sub}</div>}
     </div>
   )
 }
@@ -131,7 +131,7 @@ function VatTab() {
       <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-neutral-100 text-left text-xs text-neutral-500">
+            <tr className="border-b border-stone-100 text-left text-xs text-stone-500">
               <th className="px-4 py-2 font-medium">Rubriek</th>
               <th className="px-4 py-2 text-right font-medium">Omzet</th>
               <th className="px-4 py-2 text-right font-medium">Btw</th>
@@ -140,9 +140,9 @@ function VatTab() {
           </thead>
           <tbody className="tabular">
             {rubrieken.map(([r, l, o, b, a]) => (
-              <tr key={r} className={`border-b border-neutral-50 ${r === '5g' ? 'font-semibold' : ''}`}>
+              <tr key={r} className={`border-b border-stone-50 ${r === '5g' ? 'font-semibold' : ''}`}>
                 <td className="px-4 py-2">
-                  <span className="mr-2 text-neutral-400">{r}</span>
+                  <span className="mr-2 text-stone-400">{r}</span>
                   {l}
                 </td>
                 <td className="px-4 py-2 text-right">{o === null ? '' : eur(o)}</td>
@@ -152,7 +152,7 @@ function VatTab() {
             ))}
           </tbody>
         </table>
-        <p className="px-4 py-3 text-xs text-neutral-500">
+        <p className="px-4 py-3 text-xs text-stone-500">
           Gebaseerd op factuurdatum (factuurstelsel). Conceptfacturen tellen niet mee. "Invullen" is afgerond zoals de Belastingdienst vraagt.
         </p>
       </Card>
@@ -169,7 +169,7 @@ export function QuarterTable({ head, rows }: { head: string[]; rows: (string | n
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-neutral-100 text-xs text-neutral-500">
+        <tr className="border-b border-stone-100 text-xs text-stone-500">
           {head.map((h, i) => (
             <th key={h} className={`px-4 py-2 font-medium ${i ? 'text-right' : 'text-left'}`}>
               {h}
@@ -179,7 +179,7 @@ export function QuarterTable({ head, rows }: { head: string[]; rows: (string | n
       </thead>
       <tbody className="tabular">
         {rows.map((r, ri) => (
-          <tr key={ri} className={`border-b border-neutral-50 ${String(r[0]).startsWith('Totaal') ? 'font-semibold' : ''}`}>
+          <tr key={ri} className={`border-b border-stone-50 ${String(r[0]).startsWith('Totaal') ? 'font-semibold' : ''}`}>
             {r.map((c, i) => (
               <td key={i} className={`px-4 py-2 ${i ? 'text-right' : ''}`}>
                 {typeof c === 'number' ? eur(c) : c}
@@ -247,7 +247,7 @@ function YearTab() {
         <h2 className="px-4 pt-3 text-sm font-medium">Kosten per categorie</h2>
         <QuarterTable head={['Categorie', 'Bedrag']} rows={[...byCat, ['Totaal', y.costs]]} />
       </Card>
-      <p className="mt-3 text-xs text-neutral-500">Investeringen tellen volledig als kosten in het aanschafjaar. Btw-saldo jaar: {num(y.vatOut - y.vatIn)}.</p>
+      <p className="mt-3 text-xs text-stone-500">Investeringen tellen volledig als kosten in het aanschafjaar. Btw-saldo jaar: {num(y.vatOut - y.vatIn)}.</p>
     </>
   )
 }
