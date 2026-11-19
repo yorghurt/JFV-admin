@@ -13,19 +13,28 @@ import { Reports } from './pages/Reports'
 import { Clients } from './pages/Clients'
 import { Products } from './pages/Products'
 import { SettingsPage } from './pages/Settings'
+import { SetPassword } from './pages/SetPassword'
+
+// Resetlink uit de mail: Supabase zet type=recovery in de URL (voordat het die opruimt)
+const FROM_RESET_LINK = /type=recovery/.test(window.location.hash + window.location.search)
 
 export function App() {
   const [session, setSession] = useState<Session | null | undefined>(DEMO ? null : undefined)
+  const [recovery, setRecovery] = useState(FROM_RESET_LINK)
 
   useEffect(() => {
     if (DEMO) return
     supabase!.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase!.auth.onAuthStateChange((_e, s) => setSession(s))
+    const { data } = supabase!.auth.onAuthStateChange((event, s) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+      setSession(s)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
   if (session === undefined) return null
   if (!DEMO && !session) return <Login />
+  if (!DEMO && recovery) return <SetPassword onDone={() => setRecovery(false)} />
 
   return (
     <StoreProvider key={session?.user.id || 'demo'}>
