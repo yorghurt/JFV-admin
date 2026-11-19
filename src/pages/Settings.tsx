@@ -5,9 +5,12 @@ import type { Settings } from '../lib/types'
 import { Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui'
 import { FolderPicker } from '../components/FolderPicker'
 import { GOOGLE_ENABLED, getToken, isConnected } from '../lib/google'
+import { download, todayIso } from '../lib/calc'
 
 export function SettingsPage() {
-  const { settings, reload } = useStore()
+  const store = useStore()
+  const { settings, reload } = store
+  const [backupMsg, setBackupMsg] = useState('')
   const [s, setS] = useState<Settings>(settings)
   const [msg, setMsg] = useState('')
   const [pick, setPick] = useState<'invoices' | 'receipts' | null>(null)
@@ -19,6 +22,18 @@ export function SettingsPage() {
       <Textarea rows={rows} value={String(s[k] ?? '')} onChange={(e) => setS({ ...s, [k]: e.target.value })} />
     </Field>
   )
+
+  async function backup() {
+    setBackupMsg('Back-up voorbereiden…')
+    try {
+      const { buildBackup } = await import('../lib/backup')
+      const blob = await buildBackup({ settings, clients: store.clients, products: store.products, docs: store.docs, expenses: store.expenses }, setBackupMsg)
+      download(`JFV-administratie back-up ${todayIso()}.zip`, blob)
+      setBackupMsg(`Klaar: ${(blob.size / 1024 / 1024).toFixed(1)} MB gedownload.`)
+    } catch (e) {
+      setBackupMsg('Fout: ' + (e as Error).message)
+    }
+  }
 
   async function connect() {
     try {
@@ -93,6 +108,19 @@ export function SettingsPage() {
           {text('rental_list_url', 'Link verhuurlijst (URL)')}
         </div>
       </Card>
+      <Card className="mt-4 p-4">
+        <h2 className="mb-1 text-sm font-medium">Back-up</h2>
+        <p className="mb-3 text-xs text-stone-500">
+          Eén zip met alle gegevens (Excel-overzichten en JSON), alle bonnen en oude facturen, en een PDF van elke factuur en offerte. Advies: elk kwartaal, na je btw-aangifte.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={backup} disabled={!!backupMsg && !backupMsg.startsWith('Klaar') && !backupMsg.startsWith('Fout')}>
+            Volledige back-up downloaden
+          </Button>
+          {backupMsg && <span className={`text-sm ${backupMsg.startsWith('Fout') ? 'text-red-600' : 'text-stone-600'}`}>{backupMsg}</span>}
+        </div>
+      </Card>
+
       <Card className="mt-4 p-4">
         <h2 className="mb-1 text-sm font-medium">Google Drive</h2>
         {!GOOGLE_ENABLED ? (

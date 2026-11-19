@@ -117,6 +117,13 @@ export async function fileUrl(path: string) {
   return data.signedUrl
 }
 
+export async function downloadFile(path: string): Promise<Blob | null> {
+  if (DEMO) return null
+  const { data, error } = await supabase!.storage.from('files').download(path)
+  if (error) throw error
+  return data
+}
+
 export async function removeFile(path: string | null) {
   if (DEMO || !path) return
   await supabase!.storage.from('files').remove([path])
