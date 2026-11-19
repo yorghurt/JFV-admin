@@ -134,3 +134,15 @@ describe('mail', () => {
     expect(t).toContain('vóór 01-11-2026')
   })
 })
+
+import { withTotals } from '../lib/docs'
+describe('geïmporteerde factuur', () => {
+  it('bedragen blijven staan bij opslaan (geen regels)', () => {
+    const d = { lines: [], vat_rate: 21, subtotal: 42.5, vat_amount: 8.93, total: 51.43, imported: true }
+    expect(withTotals(d)).toMatchObject({ subtotal: 42.5, vat_amount: 8.93, total: 51.43 })
+  })
+  it('eigen factuur wordt wel uit regels berekend', () => {
+    const d = { lines: [{ id: '1', kind: null, product_id: null, date: null, description: '', quantity: 1, unit: 'dag' as const, price: 85 }], vat_rate: 21, subtotal: 0, vat_amount: 0, total: 0, imported: false }
+    expect(withTotals(d).total).toBe(102.85)
+  })
+})

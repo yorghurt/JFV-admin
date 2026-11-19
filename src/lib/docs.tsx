@@ -35,7 +35,9 @@ export function snapshot(c: Client | undefined): Partial<Client> {
   return { name, contact, address, postal_city, email }
 }
 
-export function withTotals<T extends Pick<Doc, 'lines' | 'vat_rate'>>(d: T) {
+/** Bedragen uit de regels berekenen. Geïmporteerde facturen hebben geen regels: hun bedragen blijven staan. */
+export function withTotals<T extends Pick<Doc, 'lines' | 'vat_rate'> & { imported?: boolean }>(d: T) {
+  if (d.imported) return d
   const t = totals(d.lines, d.vat_rate)
   return { ...d, subtotal: t.subtotal, vat_amount: t.vat, total: t.total }
 }
