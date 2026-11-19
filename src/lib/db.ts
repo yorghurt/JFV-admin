@@ -79,6 +79,9 @@ export async function remove(table: Table, id: string) {
   if (error) throw error
 }
 
+/** Kolommen die echt in de database bestaan; zo faalt opslaan niet als een migratie nog ontbreekt. */
+let settingsColumns: Set<string> | null = null
+
 const stripNulls = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null))
 
 export async function getSettings(): Promise<Settings> {
@@ -88,15 +91,19 @@ export async function getSettings(): Promise<Settings> {
   if (!data) {
     const { data: created, error: e2 } = await supabase!.from('settings').insert({}).select().single()
     if (e2) throw e2
+    settingsColumns = new Set(Object.keys(created))
     return { ...DEFAULT_SETTINGS, ...stripNulls(created) } as Settings
   }
+  settingsColumns = new Set(Object.keys(data))
   return { ...DEFAULT_SETTINGS, ...stripNulls(data) } as Settings
 }
 
 export async function saveSettings(s: Settings) {
   if (DEMO) return demoWrite('settings', [s])
   const { data: u } = await supabase!.auth.getUser()
-  const { error } = await supabase!.from('settings').upsert({ ...s, user_id: u.user!.id, updated_at: new Date().toISOString() })
+  const row: Record<string, unknown> = { ...s, user_id: u.user!.id, updated_at: new Date().toISOString() }
+  if (settingsColumns) for (const k of Object.keys(row)) if (!settingsColumns.has(k)) delete row[k]
+  const { error } = await supabase!.from('settings').upsert(row)
   if (error) throw error
 }
 
