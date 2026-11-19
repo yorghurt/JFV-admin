@@ -35,6 +35,30 @@ export function SettingsPage() {
     }
   }
 
+  const [driveMsg, setDriveMsg] = useState('')
+
+  /** Alle definitieve (en geïmporteerde) facturen in Drive zetten; standaard alleen wat er nog niet staat. */
+  async function bulkDrive(all: boolean) {
+    const { saveToDrive } = await import('../lib/docs')
+    const list = store.docs.filter((d) => d.doc_type === 'factuur' && d.number && d.status !== 'concept' && (!d.imported || d.file_path) && (all || !d.drive_saved_at))
+    if (!list.length) return setDriveMsg('Alle facturen staan al in Drive.')
+    const failed: string[] = []
+    for (const [i, d] of list.entries()) {
+      setDriveMsg(`Factuur ${d.number} (${i + 1} van ${list.length})…`)
+      try {
+        await saveToDrive(d, settings, store.docs.find((x) => x.id === d.credit_of)?.number)
+      } catch (e) {
+        failed.push(`${d.number}: ${(e as Error).message}`)
+      }
+    }
+    await reload()
+    setDriveMsg(
+      failed.length
+        ? `Fout bij ${failed.length} van ${list.length}: ${failed.join(' · ')}`
+        : `${list.length} ${list.length === 1 ? 'factuur' : 'facturen'} in Google Drive gezet (${settings.drive_invoices_name}/jaar/kwartaal).`,
+    )
+  }
+
   async function connect() {
     try {
       await getToken()
@@ -146,6 +170,17 @@ export function SettingsPage() {
                     </div>
                   </Field>
                 ))}
+              </div>
+            )}
+            {connected && s.drive_invoices_id && (
+              <div className="flex flex-wrap items-center gap-3 border-t border-stone-100 pt-3">
+                <Button onClick={() => bulkDrive(false)} disabled={!!driveMsg && driveMsg.endsWith('…')}>
+                  Ontbrekende facturen naar Drive
+                </Button>
+                <button className="text-xs text-stone-500 underline hover:text-ink" onClick={() => bulkDrive(true)}>
+                  alles opnieuw
+                </button>
+                {driveMsg && <span className={`text-sm ${driveMsg.startsWith('Fout') ? 'text-red-600' : 'text-stone-600'}`}>{driveMsg}</span>}
               </div>
             )}
           </div>

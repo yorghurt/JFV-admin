@@ -128,13 +128,32 @@ export async function downloadPdf(doc: Doc, settings: Settings, creditedNumber?:
   download(pdfFileName(doc), await pdfBlob(doc, settings, creditedNumber))
 }
 
-/** Factuur-PDF in Google Drive zetten: <facturenmap>/<jaar>/Q<kwartaal>/ */
-export async function saveToDrive(doc: Doc, settings: Settings, creditedNumber?: string | null) {
-  if (!settings.drive_invoices_id || !doc.number) return false
+/**
+ * Factuur in Google Drive zetten: <facturenmap>/<jaar>/Q<kwartaal>/.
+ * Eigen facturen als PDF; geïmporteerde facturen als origineel bestand.
+ * Geeft het pad terug en legt vast wanneer het is opgeslagen.
+ */
+export async function saveToDrive(doc: Doc, settings: Settings, creditedNumber?: string | null): Promise<string> {
+  if (!settings.drive_invoices_id) throw new Error('Kies eerst een map voor facturen bij Instellingen.')
+  if (!doc.number) throw new Error('Maak de factuur eerst definitief.')
   const g = await import('./google')
-  const folder = await g.ensurePath([doc.issue_date.slice(0, 4), `Q${quarterOf(doc.issue_date)}`], settings.drive_invoices_id)
-  await g.uploadToDrive(await pdfBlob(doc, settings, creditedNumber), pdfFileName(doc), folder)
-  return true
+  const parts = [doc.issue_date.slice(0, 4), `Q${quarterOf(doc.issue_date)}`]
+  const folder = await g.ensurePath(parts, settings.drive_invoices_id)
+  let blob: Blob
+  let name = pdfFileName(doc)
+  if (doc.imported) {
+    if (!doc.file_path) throw new Error('Geen origineel bestand bij deze factuur.')
+    const file = await db.downloadFile(doc.file_path)
+    if (!file) throw new Error('Origineel bestand niet gevonden.')
+    blob = file
+    name = name.replace(/\.pdf$/, '.' + (doc.file_path.split('.').pop() || 'pdf'))
+  } else {
+    blob = await pdfBlob(doc, settings, creditedNumber)
+  }
+  await g.uploadToDrive(blob, name, folder)
+  const path = [settings.drive_invoices_name || 'Facturen', ...parts, name].join('/')
+  await db.patch('documents', doc.id, { drive_saved_at: new Date().toISOString(), drive_path: path })
+  return path
 }
 
 export type MailKind = 'invoice' | 'quote' | 'reminder'

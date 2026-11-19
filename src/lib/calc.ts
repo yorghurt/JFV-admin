@@ -22,6 +22,14 @@ export function fmtDate(iso: string | null | undefined) {
   return `${d}-${m}-${y}`
 }
 
+/** "17-11-2026 14:32" in lokale tijd. */
+export function fmtDateTime(iso: string | null | undefined) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 export function todayIso() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

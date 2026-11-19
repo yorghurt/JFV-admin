@@ -175,3 +175,12 @@ describe('referentie in mail', () => {
     expect(fillTemplate(t.body, d, s)).toBe('Beste LBL Communicatie & Contentmarketing B.V.,\n\nBetreft: PO-nummer X1\n\nZie bijlage.')
   })
 })
+
+import { fmtDateTime } from '../lib/calc'
+describe('datum en tijd', () => {
+  it('lokale tijd met uren en minuten', () => {
+    const d = new Date(2026, 10, 17, 9, 5)
+    expect(fmtDateTime(d.toISOString())).toBe('17-11-2026 09:05')
+    expect(fmtDateTime(null)).toBe('')
+  })
+})

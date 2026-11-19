@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import * as db from '../lib/db'
 import { useStore } from '../lib/store'
-import { addDays, eur, fmtDate, isOverdue, lineTotal, todayIso, totals, uid } from '../lib/calc'
+import { addDays, eur, fmtDate, fmtDateTime, isOverdue, lineTotal, todayIso, totals, uid } from '../lib/calc'
 import { blankDoc, convertQuote, createCredit, downloadPdf, finalizeInvoice, nextQuoteNumber, settleCredit, snapshot, withTotals } from '../lib/docs'
 import { Link } from 'react-router-dom'
 import { MailModal } from '../components/MailModal'
@@ -103,8 +103,9 @@ export function DocEdit({ type }: { type: DocType }) {
   async function driveNote(d: Doc) {
     if (!settings.drive_invoices_id) return ''
     try {
-      await saveToDrive(withTotals(d), settings, docs.find((x) => x.id === d.credit_of)?.number)
-      return ' en opgeslagen in Google Drive'
+      const path = await saveToDrive(withTotals(d) as Doc, settings, docs.find((x) => x.id === d.credit_of)?.number)
+      await reload()
+      return `. In Google Drive gezet: ${path}`
     } catch (e) {
       return ` (Drive: ${(e as Error).message})`
     }
@@ -129,10 +130,19 @@ export function DocEdit({ type }: { type: DocType }) {
     await db.save('documents', { ...sent, ...patch })
     const client = clients.find((c) => c.id === sent.client_id)
     if (client && !client.email) await db.save('clients', { ...client, email: to })
+    // Nog niet in Drive (bijv. eerder definitief gemaakt zonder koppeling)? Dan nu alsnog.
+    const drive = isInvoice && !sent.drive_saved_at ? await driveNote(sent) : ''
     await reload()
     if (sent.id !== doc!.id) nav(`${base}/${sent.id}`, { replace: true })
-    setMsg(mail === 'reminder' ? `Herinnering verstuurd naar ${to}` : `Verstuurd naar ${to}`)
+    setMsg((mail === 'reminder' ? `Herinnering verstuurd naar ${to}` : `Verstuurd naar ${to}`) + drive)
   }
+
+  const onDrive = () =>
+    run(async () => {
+      const path = await saveToDrive(withTotals(dirty ? await persist() : doc) as Doc, settings, credited?.number)
+      await reload()
+      setMsg(`In Google Drive gezet: ${path}`)
+    })
 
   const onFinalize = () =>
     run(async () => {
@@ -192,7 +202,18 @@ export function DocEdit({ type }: { type: DocType }) {
   const sourceQuote = doc.source_quote_id && docs.find((d) => d.id === doc.source_quote_id)
   const productsByKind = (['fotografie', 'video', 'apparatuur'] as Kind[]).map((k) => [k, products.filter((p) => p.kind === k && p.active)] as const)
 
-  if (doc.imported) return <ImportedView doc={doc} onStatus={onStatus} onDelete={onDelete} onCredit={canCredit ? onCredit : undefined} busy={busy} />
+  if (doc.imported)
+    return (
+      <ImportedView
+        doc={doc}
+        msg={msg}
+        onStatus={onStatus}
+        onDelete={onDelete}
+        onCredit={canCredit ? onCredit : undefined}
+        onDrive={settings.drive_invoices_id && doc.file_path ? onDrive : undefined}
+        busy={busy}
+      />
+    )
 
   return (
     <>
@@ -232,6 +253,11 @@ export function DocEdit({ type }: { type: DocType }) {
                 Creditfactuur
               </Button>
             )}
+            {isInvoice && doc.number && settings.drive_invoices_id && (
+              <Button onClick={onDrive} disabled={busy}>
+                {doc.drive_saved_at ? 'Opnieuw in Drive' : 'Opslaan in Drive'}
+              </Button>
+            )}
             {isInvoice && doc.status === 'betaald' && (
               <Button onClick={() => onStatus('verzonden')} disabled={busy}>
                 Toch niet betaald
@@ -254,11 +280,12 @@ export function DocEdit({ type }: { type: DocType }) {
       {msg && <p className={`mb-3 text-sm ${msg.startsWith('Fout') ? 'text-red-600' : 'text-green-700'}`}>{msg}</p>}
       {(doc.sent_at || doc.reminded_at) && (
         <p className="mb-3 text-xs text-stone-500">
-          {doc.sent_at && `Gemaild op ${fmtDate(doc.sent_at)}${doc.sent_to ? ` naar ${doc.sent_to}` : ''}`}
+          {doc.sent_at && `Gemaild op ${fmtDateTime(doc.sent_at)}${doc.sent_to ? ` naar ${doc.sent_to}` : ''}`}
           {doc.sent_at && doc.reminded_at && ' · '}
-          {doc.reminded_at && `Herinnering op ${fmtDate(doc.reminded_at)}`}
+          {doc.reminded_at && `Herinnering op ${fmtDateTime(doc.reminded_at)}`}
         </p>
       )}
+      <DriveInfo doc={doc} />
       {sourceQuote && <p className="mb-3 text-xs text-stone-500">Aangemaakt vanuit offerte {sourceQuote.number}</p>}
       {credited && (
         <p className="mb-3 rounded-lg bg-brand-light p-3 text-sm">
@@ -449,7 +476,33 @@ export function DocEdit({ type }: { type: DocType }) {
   )
 }
 
-function ImportedView({ doc, onStatus, onDelete, onCredit, busy }: { doc: Doc; onStatus: (s: string) => void; onDelete: () => void; onCredit?: () => void; busy: boolean }) {
+function DriveInfo({ doc }: { doc: Doc }) {
+  if (!doc.drive_saved_at) return null
+  return (
+    <p className="mb-3 text-xs text-stone-500">
+      In Google Drive gezet op {fmtDateTime(doc.drive_saved_at)}
+      {doc.drive_path ? `: ${doc.drive_path}` : ''}
+    </p>
+  )
+}
+
+function ImportedView({
+  doc,
+  msg,
+  onStatus,
+  onDelete,
+  onCredit,
+  onDrive,
+  busy,
+}: {
+  doc: Doc
+  msg: string
+  onStatus: (s: string) => void
+  onDelete: () => void
+  onCredit?: () => void
+  onDrive?: () => void
+  busy: boolean
+}) {
   async function open() {
     const url = doc.file_path && (await db.fileUrl(doc.file_path))
     if (url) window.open(url, '_blank')
@@ -460,6 +513,14 @@ function ImportedView({ doc, onStatus, onDelete, onCredit, busy }: { doc: Doc; o
       {isOverdue(doc) && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Vervaldatum is verstreken. Check je rekening of de betaling binnen is.</div>
       )}
+      {msg && <p className={`mb-3 text-sm ${msg.startsWith('Fout') ? 'text-red-600' : 'text-green-700'}`}>{msg}</p>}
+      {(doc.sent_at || doc.reminded_at) && (
+        <p className="mb-3 text-xs text-stone-500">
+          {doc.sent_at && `Gemaild op ${fmtDateTime(doc.sent_at)}${doc.sent_to ? ` naar ${doc.sent_to}` : ''}`}
+          {doc.reminded_at && ` · herinnering op ${fmtDateTime(doc.reminded_at)}`}
+        </p>
+      )}
+      <DriveInfo doc={doc} />
       <Card className="space-y-2 p-4 text-sm">
         <p className="text-xs text-stone-500">Geïmporteerde factuur</p>
         <Row k="Klant" v={doc.client_snapshot.name || ''} />
@@ -470,6 +531,11 @@ function ImportedView({ doc, onStatus, onDelete, onCredit, busy }: { doc: Doc; o
         <div className="flex flex-wrap gap-2 pt-3">
           {doc.file_path && <Button onClick={open}>Origineel bekijken</Button>}
           {onCredit && <Button onClick={onCredit}>Creditfactuur</Button>}
+          {onDrive && (
+            <Button onClick={onDrive} disabled={busy}>
+              {doc.drive_saved_at ? 'Opnieuw in Drive' : 'Opslaan in Drive'}
+            </Button>
+          )}
           {doc.status === 'verzonden' ? (
             <Button variant="primary" disabled={busy} onClick={() => onStatus('betaald')}>
               Markeer als betaald

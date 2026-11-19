@@ -84,6 +84,26 @@ export async function save<T extends { id?: string }>(table: Table, row: T): Pro
   throw new Error('Opslaan mislukt: te veel ontbrekende kolommen. Draai de migraties in Supabase.')
 }
 
+/** Alleen enkele velden bijwerken (laat de rest van de rij ongemoeid). */
+export async function patch(table: Table, id: string, fields: Record<string, unknown>) {
+  if (DEMO) {
+    const rows = demoRead<{ id: string }>(table)
+    return demoWrite(table, rows.map((r) => (r.id === id ? { ...r, ...fields } : r)))
+  }
+  const f = { ...fields }
+  for (let i = 0; i < 10 && Object.keys(f).length; i++) {
+    const { error } = await supabase!.from(table).update(f).eq('id', id)
+    const missing = error?.message.match(/Could not find the '(\w+)' column/)?.[1]
+    if (missing && missing in f) {
+      console.warn(`Kolom ${table}.${missing} ontbreekt in de database; overgeslagen.`)
+      delete f[missing]
+      continue
+    }
+    if (error) throw error
+    return
+  }
+}
+
 export async function remove(table: Table, id: string) {
   if (DEMO) return demoWrite(table, demoRead<{ id: string }>(table).filter((r) => r.id !== id))
   const { error } = await supabase!.from(table).delete().eq('id', id)

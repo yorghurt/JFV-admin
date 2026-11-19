@@ -85,6 +85,8 @@ export interface Doc {
   credit_of: string | null
   sent_at?: string | null
   sent_to?: string | null
+  drive_saved_at?: string | null
+  drive_path?: string | null
   reminded_at?: string | null
   paid_at: string | null
   created_at?: string
