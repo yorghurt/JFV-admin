@@ -124,7 +124,7 @@ export function DocEdit({ type }: { type: DocType }) {
 
   async function afterMail(sent: Doc, to: string) {
     const now = new Date().toISOString()
-    const patch: Partial<Doc> = mail === 'reminder' ? { reminded_at: now } : { sent_at: now }
+    const patch: Partial<Doc> = mail === 'reminder' ? { reminded_at: now, sent_to: to } : { sent_at: now, sent_to: to }
     if (!isInvoice && sent.status === 'concept') patch.status = 'verzonden'
     await db.save('documents', { ...sent, ...patch })
     const client = clients.find((c) => c.id === sent.client_id)
@@ -254,7 +254,7 @@ export function DocEdit({ type }: { type: DocType }) {
       {msg && <p className={`mb-3 text-sm ${msg.startsWith('Fout') ? 'text-red-600' : 'text-green-700'}`}>{msg}</p>}
       {(doc.sent_at || doc.reminded_at) && (
         <p className="mb-3 text-xs text-stone-500">
-          {doc.sent_at && `Gemaild op ${fmtDate(doc.sent_at)}`}
+          {doc.sent_at && `Gemaild op ${fmtDate(doc.sent_at)}${doc.sent_to ? ` naar ${doc.sent_to}` : ''}`}
           {doc.sent_at && doc.reminded_at && ' · '}
           {doc.reminded_at && `Herinnering op ${fmtDate(doc.reminded_at)}`}
         </p>

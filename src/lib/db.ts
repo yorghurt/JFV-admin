@@ -68,9 +68,20 @@ export async function save<T extends { id?: string }>(table: Table, row: T): Pro
     demoWrite(table, rows)
     return r
   }
-  const { data, error } = await supabase!.from(table).upsert(row).select().single()
-  if (error) throw error
-  return data as T & { id: string }
+  // Ontbreekt een kolom (migratie nog niet gedraaid)? Dan die kolom weglaten en opnieuw proberen.
+  const r: Record<string, unknown> = { ...row }
+  for (let i = 0; i < 10; i++) {
+    const { data, error } = await supabase!.from(table).upsert(r).select().single()
+    const missing = error?.message.match(/Could not find the '(\w+)' column/)?.[1]
+    if (missing && missing in r) {
+      console.warn(`Kolom ${table}.${missing} ontbreekt in de database; overgeslagen.`)
+      delete r[missing]
+      continue
+    }
+    if (error) throw error
+    return data as T & { id: string }
+  }
+  throw new Error('Opslaan mislukt: te veel ontbrekende kolommen. Draai de migraties in Supabase.')
 }
 
 export async function remove(table: Table, id: string) {

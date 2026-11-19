@@ -84,6 +84,7 @@ export interface Doc {
   source_quote_id: string | null
   credit_of: string | null
   sent_at?: string | null
+  sent_to?: string | null
   reminded_at?: string | null
   paid_at: string | null
   created_at?: string

@@ -134,3 +134,4 @@ alter table settings add column if not exists mail_reminder_subject text;
 alter table settings add column if not exists mail_reminder_body text;
 alter table documents add column if not exists sent_at timestamptz;
 alter table documents add column if not exists reminded_at timestamptz;
+alter table documents add column if not exists sent_to text;
