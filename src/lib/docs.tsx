@@ -148,13 +148,33 @@ export function fillTemplate(tpl: string, doc: Doc, settings: Settings) {
     vervaldatum: fmtDate(doc.due_date),
     factuurdatum: fmtDate(doc.issue_date),
     opdracht: doc.project_name,
+    po: doc.po_number,
+    referentie: reference(doc),
     iban: settings.iban,
   }
-  return tpl.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
+  return tpl
+    .replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m)
+    .replace(/ \(\)/g, '') // lege referentie tussen haakjes
+    .replace(/\s+[–-]\s*$/gm, '') // lege referentie achter een streepje
+    .replace(/\nBetreft:\s*\n/g, '\n') // lege Betreft-regel
+}
+
+/** PO-nummer als dat is ingevuld, anders de opdrachtnaam. */
+export function reference(doc: Pick<Doc, 'po_number' | 'project_name'>) {
+  const po = (doc.po_number || '').trim()
+  if (po && !/^(nvt|n\.v\.t\.?|-)$/i.test(po)) return `PO-nummer ${po}`
+  return (doc.project_name || '').trim() ? `opdracht ${doc.project_name.trim()}` : ''
 }
 
 export function mailTemplate(kind: MailKind, settings: Settings) {
-  if (kind === 'quote') return { subject: settings.mail_quote_subject, body: settings.mail_quote_body }
-  if (kind === 'reminder') return { subject: settings.mail_reminder_subject, body: settings.mail_reminder_body }
-  return { subject: settings.mail_invoice_subject, body: settings.mail_invoice_body }
+  const t =
+    kind === 'quote'
+      ? { subject: settings.mail_quote_subject, body: settings.mail_quote_body }
+      : kind === 'reminder'
+        ? { subject: settings.mail_reminder_subject, body: settings.mail_reminder_body }
+        : { subject: settings.mail_invoice_subject, body: settings.mail_invoice_body }
+  // Eerder opgeslagen teksten zonder {referentie}: alsnog toevoegen
+  if (!/\{(referentie|po)\}/.test(t.subject)) t.subject = `${t.subject} – {referentie}`
+  if (!/\{(referentie|po)\}/.test(t.body)) t.body = t.body.replace(/^(.*\n)/, '$1\nBetreft: {referentie}\n')
+  return t
 }

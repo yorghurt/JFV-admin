@@ -130,7 +130,7 @@ describe('mail', () => {
     const d = { number: '202613', total: 51.43, due_date: '2026-11-01', issue_date: '2026-10-18', project_name: 'X', client_snapshot: { name: 'Medify Media B.V.', contact: 't.a.v. Ewout Sinkeldam' } } as never
     const t = fillTemplate(DEFAULT_SETTINGS.mail_invoice_body, d, DEFAULT_SETTINGS)
     expect(t).toMatch(/^Beste Ewout,/)
-    expect(t).toContain('factuur 202613 van € 51,43')
+    expect(t).toContain('factuur 202613 (opdracht X) van € 51,43')
     expect(t).toContain('vóór 01-11-2026')
   })
 })
@@ -144,5 +144,34 @@ describe('geïmporteerde factuur', () => {
   it('eigen factuur wordt wel uit regels berekend', () => {
     const d = { lines: [{ id: '1', kind: null, product_id: null, date: null, description: '', quantity: 1, unit: 'dag' as const, price: 85 }], vat_rate: 21, subtotal: 0, vat_amount: 0, total: 0, imported: false }
     expect(withTotals(d).total).toBe(102.85)
+  })
+})
+
+import { mailTemplate, reference } from '../lib/docs'
+describe('referentie in mail', () => {
+  const base = { number: '202613', total: 121, due_date: '2026-12-01', issue_date: '2026-11-17', client_snapshot: { name: 'LBL Communicatie & Contentmarketing B.V.' } }
+  it('PO-nummer wint van opdracht', () => {
+    const d = { ...base, po_number: 'WML4133', project_name: 'Apparatuur - WML' } as never
+    const t = mailTemplate('invoice', DEFAULT_SETTINGS)
+    expect(fillTemplate(t.subject, d, DEFAULT_SETTINGS)).toBe('Factuur 202613 – PO-nummer WML4133')
+    expect(fillTemplate(t.body, d, DEFAULT_SETTINGS)).toContain('factuur 202613 (PO-nummer WML4133) van € 121,00')
+  })
+  it('zonder PO de opdracht; nvt telt als leeg', () => {
+    expect(reference({ po_number: 'nvt', project_name: 'Livestream' })).toBe('opdracht Livestream')
+    const d = { ...base, po_number: '', project_name: 'Livestream' } as never
+    expect(fillTemplate(mailTemplate('reminder', DEFAULT_SETTINGS).subject, d, DEFAULT_SETTINGS)).toBe('Herinnering factuur 202613 – opdracht Livestream')
+  })
+  it('beide leeg: geen lege haakjes of streepje', () => {
+    const d = { ...base, po_number: '', project_name: '' } as never
+    const t = mailTemplate('quote', DEFAULT_SETTINGS)
+    expect(fillTemplate(t.subject, d, DEFAULT_SETTINGS)).toBe('Offerte 202613')
+    expect(fillTemplate(t.body, d, DEFAULT_SETTINGS)).toContain('offerte 202613 van € 121,00')
+  })
+  it('oude opgeslagen tekst krijgt referentie erbij', () => {
+    const s = { ...DEFAULT_SETTINGS, mail_invoice_subject: 'Factuur {nummer}', mail_invoice_body: 'Beste {naam},\n\nZie bijlage.' }
+    const d = { ...base, po_number: 'X1', project_name: '' } as never
+    const t = mailTemplate('invoice', s)
+    expect(fillTemplate(t.subject, d, s)).toBe('Factuur 202613 – PO-nummer X1')
+    expect(fillTemplate(t.body, d, s)).toBe('Beste LBL Communicatie & Contentmarketing B.V.,\n\nBetreft: PO-nummer X1\n\nZie bijlage.')
   })
 })

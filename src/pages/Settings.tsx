@@ -154,7 +154,7 @@ export function SettingsPage() {
 
       <Card className="mt-4 p-4">
         <h2 className="mb-1 text-sm font-medium">E-mail (via je Gmail)</h2>
-        <p className="mb-3 text-xs text-stone-500">Variabelen: {'{naam} {klant} {nummer} {bedrag} {vervaldatum} {factuurdatum} {opdracht} {iban}'}</p>
+        <p className="mb-3 text-xs text-stone-500">Variabelen: {'{naam} {klant} {nummer} {bedrag} {vervaldatum} {factuurdatum} {opdracht} {po} {referentie} {iban}'} · {'{referentie}'} = PO-nummer, of anders de opdracht</p>
         <div className="space-y-3">
           {text('mail_bcc', 'Bcc (kopie aan jezelf)')}
           {text('mail_invoice_subject', 'Factuur · onderwerp')}

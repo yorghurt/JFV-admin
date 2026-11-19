@@ -31,12 +31,12 @@ export const DEFAULT_SETTINGS: Settings = {
   drive_receipts_id: '',
   drive_receipts_name: '',
   mail_bcc: 'jorgvangerner@gmail.com',
-  mail_invoice_subject: 'Factuur {nummer} – Jorg Foto & Video',
-  mail_invoice_body: 'Beste {naam},\n\nIn de bijlage vind je factuur {nummer} van {bedrag}. Graag betalen vóór {vervaldatum} op {iban} o.v.v. het factuurnummer.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
-  mail_quote_subject: 'Offerte {nummer} – Jorg Foto & Video',
-  mail_quote_body: 'Beste {naam},\n\nIn de bijlage vind je offerte {nummer} van {bedrag}. De offerte is geldig tot {vervaldatum}.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
-  mail_reminder_subject: 'Herinnering factuur {nummer}',
-  mail_reminder_body: 'Beste {naam},\n\nVolgens mijn administratie staat factuur {nummer} van {bedrag} (vervaldatum {vervaldatum}) nog open. Wil je deze binnen 7 dagen voldoen op {iban} o.v.v. het factuurnummer? Is de betaling al onderweg, dan kun je dit bericht negeren. De factuur zit nogmaals in de bijlage.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
+  mail_invoice_subject: 'Factuur {nummer} – {referentie}',
+  mail_invoice_body: 'Beste {naam},\n\nIn de bijlage vind je factuur {nummer} ({referentie}) van {bedrag}. Graag betalen vóór {vervaldatum} op {iban} o.v.v. het factuurnummer.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
+  mail_quote_subject: 'Offerte {nummer} – {referentie}',
+  mail_quote_body: 'Beste {naam},\n\nIn de bijlage vind je offerte {nummer} ({referentie}) van {bedrag}. De offerte is geldig tot {vervaldatum}.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
+  mail_reminder_subject: 'Herinnering factuur {nummer} – {referentie}',
+  mail_reminder_body: 'Beste {naam},\n\nVolgens mijn administratie staat factuur {nummer} ({referentie}) van {bedrag} (vervaldatum {vervaldatum}) nog open. Wil je deze binnen 7 dagen voldoen op {iban} o.v.v. het factuurnummer? Is de betaling al onderweg, dan kun je dit bericht negeren. De factuur zit nogmaals in de bijlage.\n\nMet vriendelijke groet,\n\nJorg van Gerner\nJorg Foto & Video\n+31 (0)6 128 321 58',
 }
 
 const demoKey = (t: string) => `jfv-demo-${t}`
