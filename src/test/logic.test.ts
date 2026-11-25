@@ -184,3 +184,15 @@ describe('datum en tijd', () => {
     expect(fmtDateTime(null)).toBe('')
   })
 })
+
+import { displayStatus } from '../pages/DocList'
+describe('statuslabel factuurlijst', () => {
+  const f = (o: object) => ({ doc_type: 'factuur', status: 'verzonden', due_date: '2099-01-01', credit_of: null, imported: false, sent_at: null, ...o }) as never
+  it('definitief gemaakt maar nog niet gemaild', () => expect(displayStatus(f({}))).toBe('definitief'))
+  it('gemaild', () => expect(displayStatus(f({ sent_at: '2026-11-25T10:00:00Z' }))).toBe('verzonden'))
+  it('geïmporteerd is openstaand', () => expect(displayStatus(f({ imported: true }))).toBe('openstaand'))
+  it('vervallen en betaald blijven', () => {
+    expect(displayStatus(f({ due_date: '2020-01-01' }))).toBe('vervallen')
+    expect(displayStatus(f({ status: 'betaald' }))).toBe('betaald')
+  })
+})

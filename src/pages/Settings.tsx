@@ -55,7 +55,7 @@ export function SettingsPage() {
     setDriveMsg(
       failed.length
         ? `Fout bij ${failed.length} van ${list.length}: ${failed.join(' · ')}`
-        : `${list.length} ${list.length === 1 ? 'factuur' : 'facturen'} in Google Drive gezet (${settings.drive_invoices_name}/jaar/kwartaal).`,
+        : `${list.length} ${list.length === 1 ? 'factuur' : 'facturen'} in Google Drive gezet (${settings.drive_invoices_name}/Q1–Q4).`,
     )
   }
 
@@ -152,7 +152,7 @@ export function SettingsPage() {
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-stone-500">
-              Facturen gaan bij "Definitief maken" naar <i>facturenmap/jaar/kwartaal</i>. Bonnen sleep je in de bonnenmap; na verwerken gaan ze naar <i>bonnenmap/Verwerkt/jaar</i>.
+              Facturen gaan bij "Definitief maken" naar <i>facturenmap/Q1–Q4</i>. Bonnen sleep je in de bonnenmap; na verwerken gaan ze naar <i>bonnenmap/Verwerkt/jaar</i>.
             </p>
             {!connected && <Button onClick={connect}>Verbind met Google</Button>}
             {connected && (

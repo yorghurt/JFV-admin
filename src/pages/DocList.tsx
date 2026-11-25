@@ -6,9 +6,15 @@ import type { Doc, DocType } from '../lib/types'
 import { Badge, Button, Card, Empty, PageHeader, Tabs } from '../components/ui'
 import { ImportInvoice } from './ImportInvoice'
 
+/**
+ * Label voor de lijst. In de database blijft 'verzonden' de status van een definitieve, nog niet betaalde factuur;
+ * 'verzonden' tonen we alleen als de factuur echt is gemaild.
+ */
 export function displayStatus(d: Doc) {
   if (d.credit_of) return d.status === 'betaald' ? 'verrekend' : d.status === 'verzonden' ? 'terug te betalen' : d.status
-  return isOverdue(d) ? 'vervallen' : d.status
+  if (isOverdue(d)) return 'vervallen'
+  if (d.doc_type === 'factuur' && d.status === 'verzonden') return d.imported ? 'openstaand' : d.sent_at ? 'verzonden' : 'definitief'
+  return d.status
 }
 
 const FILTERS = {

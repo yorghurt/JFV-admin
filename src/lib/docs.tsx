@@ -137,7 +137,7 @@ export async function saveToDrive(doc: Doc, settings: Settings, creditedNumber?:
   if (!settings.drive_invoices_id) throw new Error('Kies eerst een map voor facturen bij Instellingen.')
   if (!doc.number) throw new Error('Maak de factuur eerst definitief.')
   const g = await import('./google')
-  const parts = [doc.issue_date.slice(0, 4), `Q${quarterOf(doc.issue_date)}`]
+  const parts = [`Q${quarterOf(doc.issue_date)}`] // direct in de kwartaalmap onder de facturenmap
   const folder = await g.ensurePath(parts, settings.drive_invoices_id)
   let blob: Blob
   let name = pdfFileName(doc)

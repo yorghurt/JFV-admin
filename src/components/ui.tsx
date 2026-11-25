@@ -56,6 +56,8 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
 const STATUS_CLS: Record<string, string> = {
   concept: 'bg-stone-100 text-stone-600',
   verzonden: 'bg-blue-50 text-blue-700',
+  definitief: 'bg-stone-100 text-stone-700',
+  openstaand: 'bg-blue-50 text-blue-700',
   betaald: 'bg-green-50 text-green-700',
   vervallen: 'bg-red-50 text-red-700',
   geaccepteerd: 'bg-green-50 text-green-700',
