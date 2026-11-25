@@ -29,9 +29,17 @@ export function blankDoc(type: DocType, settings: Settings): Omit<Doc, 'id'> & {
   }
 }
 
+export const TAV = /^t\.?a\.?v\.?\s*/i
+
+/** Naam van de gekozen contactpersoon uit "t.a.v. Diana Kobus". */
+export const contactName = (contact?: string | null) => (contact || '').replace(TAV, '').trim()
+
+/** Klantgegevens voor op de factuur. Bij precies één contactpersoon is die direct gekozen; bij meer kies je zelf. */
 export function snapshot(c: Client | undefined): Partial<Client> {
   if (!c) return {}
-  const { name, contact, address, postal_city, email } = c
+  const { name, address, postal_city, email } = c
+  const list = c.contacts ?? []
+  const contact = list.length === 1 ? `t.a.v. ${list[0]}` : list.length > 1 ? '' : c.contact
   return { name, contact, address, postal_city, email }
 }
 

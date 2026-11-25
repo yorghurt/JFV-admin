@@ -137,3 +137,4 @@ alter table documents add column if not exists reminded_at timestamptz;
 alter table documents add column if not exists sent_to text;
 alter table documents add column if not exists drive_saved_at timestamptz;
 alter table documents add column if not exists drive_path text;
+alter table clients add column if not exists contacts jsonb default '[]'::jsonb;

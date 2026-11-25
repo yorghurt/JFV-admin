@@ -6,7 +6,7 @@ import { addDays, eur, fmtDate, fmtDateTime, isOverdue, lineTotal, todayIso, tot
 import { blankDoc, convertQuote, createCredit, downloadPdf, finalizeInvoice, nextQuoteNumber, settleCredit, snapshot, withTotals } from '../lib/docs'
 import { Link } from 'react-router-dom'
 import { MailModal } from '../components/MailModal'
-import { saveToDrive, type MailKind } from '../lib/docs'
+import { contactName, saveToDrive, type MailKind } from '../lib/docs'
 import { KIND_LABEL, type Doc, type DocType, type Kind, type Line } from '../lib/types'
 import { Badge, Button, Card, Field, Input, PageHeader, Select, Textarea } from '../components/ui'
 import { ClientForm } from './Clients'
@@ -330,6 +330,24 @@ export function DocEdit({ type }: { type: DocType }) {
               </Button>
             </div>
           </Field>
+          {(() => {
+            const list = clients.find((x) => x.id === doc.client_id)?.contacts ?? []
+            const current = contactName(doc.client_snapshot.contact)
+            const options = current && !list.includes(current) ? [current, ...list] : list
+            if (!options.length) return null
+            return (
+              <Field label="Contactpersoon (t.a.v.)">
+                <Select value={current} onChange={(e) => update({ client_snapshot: { ...doc.client_snapshot, contact: e.target.value ? `t.a.v. ${e.target.value}` : '' } })}>
+                  <option value="">Geen contactpersoon</option>
+                  {options.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )
+          })()}
           <Field label="Opdrachtnaam">
             <Input value={doc.project_name} onChange={(e) => update({ project_name: e.target.value })} placeholder="Bijv. Apparatuur - WML" />
           </Field>

@@ -35,6 +35,7 @@ export interface Client {
   id: string
   name: string
   contact: string
+  contacts?: string[]
   address: string
   postal_city: string
   email: string

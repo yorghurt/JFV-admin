@@ -196,3 +196,16 @@ describe('statuslabel factuurlijst', () => {
     expect(displayStatus(f({ status: 'betaald' }))).toBe('betaald')
   })
 })
+
+import { contactName, snapshot } from '../lib/docs'
+describe('contactpersonen', () => {
+  const c = { id: '1', name: 'LBL', contact: '', address: 'A', postal_city: 'P', email: '' }
+  it('meerdere contactpersonen: zelf kiezen', () => expect(snapshot({ ...c, contacts: ['Diana Kobus', 'Lois Verweij'] }).contact).toBe(''))
+  it('één contactpersoon: direct gekozen', () => expect(snapshot({ ...c, contacts: ['Diana Kobus'] }).contact).toBe('t.a.v. Diana Kobus'))
+  it('oude klant met alleen t.a.v.', () => expect(snapshot({ ...c, contact: 't.a.v. Ewout Sinkeldam' }).contact).toBe('t.a.v. Ewout Sinkeldam'))
+  it('naam uit t.a.v.', () => expect(contactName('t.a.v. Diana Kobus')).toBe('Diana Kobus'))
+  it('mail-aanhef gebruikt voornaam van contactpersoon', () => {
+    const d = { number: '1', total: 1, due_date: '2026-12-01', issue_date: '2026-11-01', po_number: '', project_name: '', client_snapshot: { name: 'LBL', contact: 't.a.v. Marieke van Sonsbeek' } } as never
+    expect(fillTemplate('Beste {naam},', d, DEFAULT_SETTINGS)).toBe('Beste Marieke,')
+  })
+})

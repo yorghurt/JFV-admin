@@ -3,20 +3,24 @@ import * as db from '../lib/db'
 import { useStore } from '../lib/store'
 import { eur } from '../lib/calc'
 import type { Client } from '../lib/types'
+import { contactName } from '../lib/docs'
 import { Button, Card, Empty, Field, Input, Modal, PageHeader } from '../components/ui'
 
-const EMPTY: Omit<Client, 'id'> = { name: '', contact: '', address: '', postal_city: '', email: '' }
+const EMPTY: Omit<Client, 'id'> = { name: '', contact: '', contacts: [], address: '', postal_city: '', email: '' }
 
 export function ClientForm({ client, onClose, onSaved }: { client?: Client; onClose: () => void; onSaved?: (c: Client) => void }) {
   const { reload } = useStore()
-  const [c, setC] = useState<Omit<Client, 'id'> & { id?: string }>(client || EMPTY)
+  // Oude klanten met alleen een "t.a.v."-veld: dat wordt de eerste contactpersoon
+  const initial = client ? { ...client, contacts: client.contacts?.length ? client.contacts : client.contact ? [contactName(client.contact)] : [] } : EMPTY
+  const [c, setC] = useState<Omit<Client, 'id'> & { id?: string }>(initial)
   const [busy, setBusy] = useState(false)
   const set = (k: keyof Client) => (e: { target: { value: string } }) => setC((x) => ({ ...x, [k]: e.target.value }))
 
   async function submit() {
     if (!c.name.trim()) return
     setBusy(true)
-    const saved = await db.save('clients', c)
+    const contacts = [...new Set((c.contacts ?? []).map((n) => n.trim()).filter(Boolean))]
+    const saved = await db.save('clients', { ...c, contacts })
     await reload()
     setBusy(false)
     onSaved?.(saved as Client)
@@ -36,8 +40,24 @@ export function ClientForm({ client, onClose, onSaved }: { client?: Client; onCl
         <Field label="Bedrijfsnaam / naam">
           <Input value={c.name} onChange={set('name')} autoFocus />
         </Field>
-        <Field label="T.a.v. (optioneel)">
-          <Input value={c.contact} onChange={set('contact')} />
+        <Field label="Contactpersonen">
+          <div className="space-y-2">
+            {(c.contacts ?? []).map((n, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={n}
+                  placeholder="Voor- en achternaam"
+                  onChange={(e) => setC((x) => ({ ...x, contacts: (x.contacts ?? []).map((v, j) => (j === i ? e.target.value : v)) }))}
+                />
+                <Button type="button" variant="ghost" onClick={() => setC((x) => ({ ...x, contacts: (x.contacts ?? []).filter((_, j) => j !== i) }))} aria-label="Verwijder contactpersoon">
+                  ✕
+                </Button>
+              </div>
+            ))}
+            <Button type="button" onClick={() => setC((x) => ({ ...x, contacts: [...(x.contacts ?? []), ''] }))}>
+              + Contactpersoon
+            </Button>
+          </div>
         </Field>
         <Field label="Adres">
           <Input value={c.address} onChange={set('address')} />
@@ -87,6 +107,7 @@ export function Clients() {
                     <div>
                       <div className="text-sm font-medium">{c.name}</div>
                       <div className="text-xs text-stone-500">{[c.address, c.postal_city].filter(Boolean).join(', ')}</div>
+                      {!!c.contacts?.length && <div className="text-xs text-stone-400">{c.contacts.join(' · ')}</div>}
                     </div>
                     <span className="text-sm tabular text-stone-500">{eur(revenue(c.id))}</span>
                   </button>
